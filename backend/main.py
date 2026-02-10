@@ -1,15 +1,14 @@
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Request, Query
+import uuid
+import asyncio
+import json
+import redis
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, Query, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import Limiter
 from slowapi.util import get_remote_address
-from worker import download_video_task
-import redis
-import json
-import uuid
-import asyncio
+from worker import download_video_task 
 from services.scraper import get_video_info
 
-# ============= APP INITIALIZATION =============
 app = FastAPI(title="Pro 5-in-1 Downloader")
 r = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)
 limiter = Limiter(key_func=get_remote_address)
