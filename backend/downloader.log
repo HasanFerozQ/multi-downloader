@@ -55,3 +55,42 @@
 2026-02-10 14:33:01,616 - main - INFO - Sending file: cs_405_short_lecture_lecture_no_2_final_term_preparation_mos.mp3 (16.02MB)
 2026-02-10 14:33:01,617 - main - INFO - GET /download - Status: 200 - Time: 15.88s - IP: 127.0.0.1
 2026-02-10 14:33:01,743 - main - INFO - Deleted temp file: temp_downloads\85457a165227470593308ae119a55dc8.mp3
+2026-02-10 16:00:12,116 - main - INFO - Starting Video Downloader API
+2026-02-10 16:00:12,120 - main - INFO - FFmpeg found at: C:\ffmpeg\bin\ffmpeg.EXE
+2026-02-10 16:00:12,120 - main - INFO - yt-dlp found at: C:\Users\Hasan-PC\Desktop\multi-downloader\backend\venv\Scripts\yt-dlp.EXE
+2026-02-10 16:00:12,121 - main - INFO - Started temp file cleanup task
+2026-02-10 16:01:11,336 - main - INFO - Shutting down Video Downloader API
+2026-02-10 16:01:13,675 - main - INFO - Starting Video Downloader API
+2026-02-10 16:01:13,686 - main - INFO - FFmpeg found at: C:\ffmpeg\bin\ffmpeg.EXE
+2026-02-10 16:01:13,692 - main - INFO - yt-dlp found at: C:\Users\Hasan-PC\Desktop\multi-downloader\backend\venv\Scripts\yt-dlp.EXE
+2026-02-10 16:01:13,693 - main - INFO - Started temp file cleanup task
+2026-02-10 16:01:14,199 - main - INFO - Shutting down Video Downloader API
+2026-02-10 16:01:16,466 - main - INFO - Starting Video Downloader API
+2026-02-10 16:01:16,470 - main - INFO - FFmpeg found at: C:\ffmpeg\bin\ffmpeg.EXE
+2026-02-10 16:01:16,476 - main - INFO - yt-dlp found at: C:\Users\Hasan-PC\Desktop\multi-downloader\backend\venv\Scripts\yt-dlp.EXE
+2026-02-10 16:01:16,480 - main - INFO - Started temp file cleanup task
+2026-02-10 16:01:16,626 - main - INFO - Shutting down Video Downloader API
+2026-02-10 16:01:18,641 - main - INFO - Starting Video Downloader API
+2026-02-10 16:01:18,647 - main - INFO - FFmpeg found at: C:\ffmpeg\bin\ffmpeg.EXE
+2026-02-10 16:01:18,650 - main - INFO - yt-dlp found at: C:\Users\Hasan-PC\Desktop\multi-downloader\backend\venv\Scripts\yt-dlp.EXE
+2026-02-10 16:01:18,651 - main - INFO - Started temp file cleanup task
+2026-02-10 16:01:18,930 - main - INFO - Shutting down Video Downloader API
+2026-02-10 16:01:20,772 - main - INFO - Starting Video Downloader API
+2026-02-10 16:01:20,776 - main - INFO - FFmpeg found at: C:\ffmpeg\bin\ffmpeg.EXE
+2026-02-10 16:01:20,783 - main - INFO - yt-dlp found at: C:\Users\Hasan-PC\Desktop\multi-downloader\backend\venv\Scripts\yt-dlp.EXE
+2026-02-10 16:01:20,785 - main - INFO - Started temp file cleanup task
+2026-02-10 16:01:23,406 - main - INFO - Shutting down Video Downloader API
+2026-02-10 16:01:25,265 - main - INFO - Starting Video Downloader API
+2026-02-10 16:01:25,302 - main - INFO - FFmpeg found at: C:\ffmpeg\bin\ffmpeg.EXE
+2026-02-10 16:01:25,311 - main - INFO - yt-dlp found at: C:\Users\Hasan-PC\Desktop\multi-downloader\backend\venv\Scripts\yt-dlp.EXE
+2026-02-10 16:01:25,312 - main - INFO - Started temp file cleanup task
+2026-02-10 16:01:25,940 - main - INFO - Shutting down Video Downloader API
+2026-02-10 16:01:27,778 - main - INFO - Starting Video Downloader API
+2026-02-10 16:01:27,782 - main - INFO - FFmpeg found at: C:\ffmpeg\bin\ffmpeg.EXE
+2026-02-10 16:01:27,786 - main - INFO - yt-dlp found at: C:\Users\Hasan-PC\Desktop\multi-downloader\backend\venv\Scripts\yt-dlp.EXE
+2026-02-10 16:01:27,786 - main - INFO - Started temp file cleanup task
+2026-02-10 16:01:34,400 - main - INFO - Shutting down Video Downloader API
+2026-02-10 16:02:13,307 - main - INFO - Starting Video Downloader API
+2026-02-10 16:02:13,312 - main - INFO - FFmpeg found at: C:\ffmpeg\bin\ffmpeg.EXE
+2026-02-10 16:02:13,312 - main - INFO - yt-dlp found at: C:\Users\Hasan-PC\Desktop\multi-downloader\backend\venv\Scripts\yt-dlp.EXE
+2026-02-10 16:02:13,313 - main - INFO - Started temp file cleanup task

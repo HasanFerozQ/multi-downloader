@@ -15,8 +15,8 @@ pydantic-settings==2.1.0
 tenacity==8.2.3
 
 # Optional: Queue system (uncomment if using Celery)
-# redis==5.0.1
-# celery==5.3.4
+redis==5.0.1
+celery==5.3.4
 
 # Optional: Error tracking (uncomment if using Sentry)
 # sentry-sdk[fastapi]==1.40.0
