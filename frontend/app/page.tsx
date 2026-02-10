@@ -163,28 +163,50 @@ export default function Home() {
           </div>
         )}
 
-        {/* SUPPORT RECTANGLE (Updated Binance Section) */}
-        <section className="mt-24 max-w-2xl mx-auto bg-[#0f172a] border border-yellow-500/20 rounded-2xl overflow-hidden shadow-2xl">
-          <div className="flex flex-col md:flex-row items-center p-8 gap-8">
-            <div className="flex-shrink-0 bg-white p-3 rounded-xl shadow-lg border-4 border-yellow-500/10">
-              <img src="/binance_qr.png" alt="Binance QR" className="w-32 h-32 md:w-40 md:h-40 object-contain" />
-              <p className="text-[10px] text-center text-slate-900 font-bold mt-2 tracking-tight">SCAN TO PAY</p>
-            </div>
-            <div className="flex-1 text-center md:text-left">
-              <div className="flex items-center justify-center md:justify-start gap-2 mb-2">
-                <Coffee className="text-yellow-500" size={24} />
-                <h2 className="text-2xl font-black text-white tracking-tight">Support the Server</h2>
-              </div>
-              <p className="text-slate-400 text-sm leading-relaxed mb-6">
-                Maintaining a safe, no-redirect service is expensive. If we helped you today, consider a 1 USDT tip to keep the King free.
-              </p>
-              <div className="bg-white/5 border border-white/10 rounded-lg p-3 inline-block w-full md:w-auto">
-                <p className="text-[9px] uppercase tracking-[0.2em] text-yellow-500 font-bold mb-1">Binance Pay ID</p>
-                <p className="text-white font-mono font-bold select-all">86846518</p>
-              </div>
-            </div>
-          </div>
-        </section>
+        {/* SUPPORT SECTION - GLOBAL PAYMENTS */}
+<section className="mt-24 max-w-2xl mx-auto bg-[#0f172a] border border-yellow-500/20 rounded-2xl overflow-hidden shadow-2xl">
+  <div className="flex flex-col md:flex-row items-stretch p-8 gap-8">
+    
+    {/* QR CODE (Binance Pay) */}
+    <div className="flex-shrink-0 bg-white p-3 rounded-xl shadow-lg border-4 border-yellow-500/10 flex flex-col items-center justify-center">
+      <img src="/binance_qr.png" alt="Binance QR" className="w-32 h-32 object-contain" />
+      <p className="text-[9px] text-center text-slate-900 font-black mt-2 uppercase tracking-tighter">Binance Pay</p>
+    </div>
+
+    {/* MULTI-PAYMENT OPTIONS */}
+    <div className="flex-1">
+      <div className="flex items-center gap-2 mb-2">
+        <Coffee className="text-yellow-500" size={24} />
+        <h2 className="text-xl font-black text-white uppercase">Support the Server</h2>
+      </div>
+      
+      <p className="text-slate-500 text-xs mb-6">Choose your preferred way to help us stay online.</p>
+
+      <div className="space-y-3">
+        {/* GLOBAL CREDIT/DEBIT CARD (Payoneer/XPay) */}
+        <a 
+          href="PASTE_YOUR_PAYONEER_OR_XPAY_LINK_HERE" 
+          target="_blank"
+          className="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-3 rounded-lg font-bold text-[10px] flex items-center justify-center gap-2 transition-all shadow-lg"
+        >
+          💳 CREDIT / DEBIT CARD (GLOBAL)
+        </a>
+
+        {/* BINANCE PAY ID */}
+        <div className="bg-white/5 border border-white/10 rounded-lg p-3 group relative cursor-pointer active:scale-95 transition">
+          <p className="text-[8px] uppercase tracking-[0.2em] text-yellow-500 font-bold mb-1">Binance Pay ID</p>
+          <p className="text-[11px] text-white font-mono font-bold select-all leading-none">86846518</p>
+        </div>
+
+        {/* MANUAL USDT (TRC-20) */}
+        <div className="bg-white/5 border border-white/10 rounded-lg p-3">
+          <p className="text-[8px] uppercase tracking-[0.2em] text-blue-400 font-bold mb-1">Global USDT (TRC-20)</p>
+          <p className="text-[10px] text-white font-mono font-bold select-all truncate">TLLggXh91RjxpKNb7FHXgTd6JDHb9gQVGE</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
 
         {/* SEO SECTIONS */}
         <section className="mt-24 grid md:grid-cols-2 gap-16 border-t border-white/5 pt-16 text-slate-500 text-xs md:text-sm">
