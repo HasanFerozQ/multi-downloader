@@ -12,3 +12,6 @@ temp_downloads/
 # Environment
 .env
 .DS_Store
+
+# ffmpeg
+ffmpeg.exe
