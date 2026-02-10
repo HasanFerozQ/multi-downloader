@@ -58,6 +58,7 @@
     --color-blue-500: #3080ff;
     --color-blue-600: #155dfc;
     --color-slate-200: #e2e8f0;
+    --color-slate-300: #cad5e2;
     --color-slate-500: #62748e;
     --color-slate-700: #314158;
     --color-slate-800: #1d293d;
@@ -118,6 +119,7 @@
       --color-blue-500: lab(54.1736% 13.3368 -74.6839);
       --color-blue-600: lab(44.0605% 29.0279 -86.0352);
       --color-slate-200: lab(91.7353% -.998765 -4.76968);
+      --color-slate-300: lab(84.7652% -1.94535 -7.93337);
       --color-slate-500: lab(48.0876% -2.03595 -16.5814);
       --color-slate-700: lab(26.9569% -1.47018 -15.6993);
       --color-slate-800: lab(16.132% -.318021 -14.6672);
@@ -423,6 +425,10 @@
     margin-top: calc(var(--spacing) * 4);
   }
 
+  .mt-12 {
+    margin-top: calc(var(--spacing) * 12);
+  }
+
   .mt-20 {
     margin-top: calc(var(--spacing) * 20);
   }
@@ -486,8 +492,8 @@
     height: calc(var(--spacing) * 3);
   }
 
-  .h-16 {
-    height: calc(var(--spacing) * 16);
+  .h-20 {
+    height: calc(var(--spacing) * 20);
   }
 
   .h-28 {
@@ -884,6 +890,10 @@
     padding-block: calc(var(--spacing) * 4);
   }
 
+  .pt-8 {
+    padding-top: calc(var(--spacing) * 8);
+  }
+
   .pt-12 {
     padding-top: calc(var(--spacing) * 12);
   }
@@ -996,6 +1006,10 @@
     color: var(--color-slate-200);
   }
 
+  .text-slate-300 {
+    color: var(--color-slate-300);
+  }
+
   .text-slate-500 {
     color: var(--color-slate-500);
   }
@@ -1055,6 +1069,12 @@
     backdrop-filter: var(--tw-backdrop-blur, ) var(--tw-backdrop-brightness, ) var(--tw-backdrop-contrast, ) var(--tw-backdrop-grayscale, ) var(--tw-backdrop-hue-rotate, ) var(--tw-backdrop-invert, ) var(--tw-backdrop-opacity, ) var(--tw-backdrop-saturate, ) var(--tw-backdrop-sepia, );
   }
 
+  .transition {
+    transition-property: color, background-color, border-color, outline-color, text-decoration-color, fill, stroke, --tw-gradient-from, --tw-gradient-via, --tw-gradient-to, opacity, box-shadow, transform, translate, scale, rotate, filter, -webkit-backdrop-filter, backdrop-filter, display, content-visibility, overlay, pointer-events;
+    transition-timing-function: var(--tw-ease, var(--default-transition-timing-function));
+    transition-duration: var(--tw-duration, var(--default-transition-duration));
+  }
+
   .transition-all {
     transition-property: all;
     transition-timing-function: var(--tw-ease, var(--default-transition-timing-function));
@@ -1095,15 +1115,15 @@
     }
   }
 
-  @media (min-width: 48rem) {
-    .md\:h-4 {
-      height: calc(var(--spacing) * 4);
+  @media (hover: hover) {
+    .hover\:text-blue-500:hover {
+      color: var(--color-blue-500);
     }
   }
 
   @media (min-width: 48rem) {
-    .md\:h-20 {
-      height: calc(var(--spacing) * 20);
+    .md\:h-4 {
+      height: calc(var(--spacing) * 4);
     }
   }
 
@@ -1186,6 +1206,12 @@
   }
 
   @media (min-width: 48rem) {
+    .md\:p-24 {
+      padding: calc(var(--spacing) * 24);
+    }
+  }
+
+  @media (min-width: 48rem) {
     .md\:text-2xl {
       font-size: var(--text-2xl);
       line-height: var(--tw-leading, var(--text-2xl--line-height));
@@ -1230,12 +1256,6 @@
   @media (min-width: 48rem) {
     .md\:text-\[10px\] {
       font-size: 10px;
-    }
-  }
-
-  @media (min-width: 64rem) {
-    .lg\:block {
-      display: block;
     }
   }
 

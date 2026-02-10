@@ -571,36 +571,56 @@ function Home() {
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("footer", {
-                className: "fixed bottom-0 left-0 w-full h-16 md:h-20 bg-[#0f172a]/95 backdrop-blur-lg border-t border-white/10 flex items-center justify-center z-50",
+                className: "fixed bottom-0 left-0 w-full h-20 bg-[#0f172a]/95 backdrop-blur-lg border-t border-white/10 flex items-center justify-center z-50",
                 children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                    className: "flex items-center gap-4 px-4 w-full justify-center",
+                    className: "flex flex-col md:flex-row items-center gap-4 px-4 w-full justify-center",
                     children: [
-                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
-                            className: "text-[9px] font-black text-slate-700 uppercase tracking-widest hidden lg:block",
-                            children: "Sponsor"
-                        }, void 0, false, {
-                            fileName: "[project]/app/page.tsx",
-                            lineNumber: 171,
-                            columnNumber: 12
-                        }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                            className: "w-full max-w-[320px] md:max-w-[728px] h-[50px] bg-white/5 rounded border border-white/5 flex items-center justify-center italic text-slate-700 text-[9px] md:text-[10px]",
-                            children: "SAFE STICKY AD (320x50 on Mobile / 728x50 on Desktop)"
+                            className: "w-full max-w-[320px] md:max-w-[728px] h-[50px] bg-white/5 rounded border border-white/5 flex items-center justify-center italic text-slate-700 text-[9px]",
+                            children: "SAFE STICKY AD AREA"
                         }, void 0, false, {
                             fileName: "[project]/app/page.tsx",
                             lineNumber: 172,
-                            columnNumber: 12
+                            columnNumber: 6
+                        }, this),
+                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                            className: "flex gap-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest",
+                            children: [
+                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("a", {
+                                    href: "/terms",
+                                    target: "_blank",
+                                    className: "hover:text-blue-500 transition",
+                                    children: "Terms"
+                                }, void 0, false, {
+                                    fileName: "[project]/app/page.tsx",
+                                    lineNumber: 177,
+                                    columnNumber: 9
+                                }, this),
+                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("a", {
+                                    href: "#",
+                                    className: "hover:text-blue-500 transition",
+                                    children: "Privacy"
+                                }, void 0, false, {
+                                    fileName: "[project]/app/page.tsx",
+                                    lineNumber: 178,
+                                    columnNumber: 9
+                                }, this)
+                            ]
+                        }, void 0, true, {
+                            fileName: "[project]/app/page.tsx",
+                            lineNumber: 176,
+                            columnNumber: 6
                         }, this)
                     ]
                 }, void 0, true, {
                     fileName: "[project]/app/page.tsx",
-                    lineNumber: 170,
-                    columnNumber: 9
+                    lineNumber: 171,
+                    columnNumber: 3
                 }, this)
             }, void 0, false, {
                 fileName: "[project]/app/page.tsx",
-                lineNumber: 169,
-                columnNumber: 7
+                lineNumber: 170,
+                columnNumber: 5
             }, this)
         ]
     }, void 0, true, {
