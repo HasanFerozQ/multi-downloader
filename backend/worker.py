@@ -1,75 +1,53 @@
-import os
-import subprocess
+import os, subprocess, time
 from celery import Celery
-from pathlib import Path
 
-# Setup Celery
 celery = Celery('tasks', broker='redis://localhost:6379/0', backend='redis://localhost:6379/0')
+
+# --- AUTOMATIC UPDATES ---
+def update_ytdlp():
+    """Keep yt-dlp updated to bypass platform changes"""
+    subprocess.run(["pip", "install", "-U", "yt-dlp"], capture_output=True)
 
 @celery.task(bind=True)
 def download_video_task(self, url, format_id, output_path):
+    update_ytdlp()
     self.update_state(state='PROGRESS', meta={'progress': 0})
-    
-    # Path exactly as shown in your C: drive screenshot
     ffmpeg_path = r"C:\ffmpeg\bin"
     
     if format_id == "mp3":
-        # Handle audio extraction
         cmd = [
-            "yt-dlp",
-            "-f", "bestaudio/best",
-            "--extract-audio",
-            "--audio-format", "mp3",
-            "--ffmpeg-location", ffmpeg_path,
-            "--newline",
-            "-o", output_path,
-            url
+            "yt-dlp", "-f", "bestaudio/best", "--extract-audio", 
+            "--audio-format", "mp3", "--audio-quality", "0", # 0 = Best Quality (320kbps)
+            "--ffmpeg-location", ffmpeg_path, "--newline", "-o", output_path, url
         ]
     else:
-        # THE CRITICAL FIX:
-        # 1. We force the specific format_id + bestaudio.
-        # 2. We add --merge-output-format mp4 to ensure a single file.
-        # 3. We use --postprocessor-args to ensure the audio is encoded correctly for MP4.
         cmd = [
-            "yt-dlp",
-            "-f", f"{format_id}+bestaudio/best",
-            "--merge-output-format", "mp4",
-            "--ffmpeg-location", ffmpeg_path,
-            "--postprocessor-args", "ffmpeg:-c:a aac", 
-            "--newline",
-            "-o", output_path,
-            url
+            "yt-dlp", "-f", f"{format_id}+bestaudio/best", 
+            "--merge-output-format", "mp4", "--ffmpeg-location", ffmpeg_path,
+            "--postprocessor-args", "ffmpeg:-c:a aac -b:a 192k", # High audio bitrate
+            "--newline", "-o", output_path, url
         ]
 
-    # Execute the yt-dlp process
-    process = subprocess.Popen(
-        cmd, 
-        stdout=subprocess.PIPE, 
-        stderr=subprocess.STDOUT, 
-        text=True,
-        encoding='utf-8',
-        errors='replace'
-    )
+    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     
     for line in process.stdout:
-        # Real-time progress monitoring for the frontend WebSocket
         if "[download]" in line and "%" in line:
             try:
-                parts = line.split()
-                for part in parts:
-                    if '%' in part:
-                        p_str = part.replace('%', '')
-                        # Handle cases where percentage might be colored or have extra chars
-                        p = float(''.join(c for c in p_str if c.isdigit() or c == '.'))
-                        self.update_state(state='PROGRESS', meta={'progress': p})
-                        break
-            except: 
-                pass
+                p = float([x for x in line.split() if '%' in x][0].replace('%', ''))
+                self.update_state(state='PROGRESS', meta={'progress': p})
+            except: pass
                 
     process.wait()
+    if process.returncode != 0:
+        raise Exception("yt-dlp failed. Try again later.")
 
-    # Final verification: If the file exists but is under 1MB, it likely failed to merge
-    if os.path.exists(output_path) and os.path.getsize(output_path) > 1024:
-        return {"status": "Success", "file": output_path}
-    else:
-        return {"status": "Error", "message": "Download or Merge failed. Check if FFmpeg is accessible."}
+# --- PERIODIC STORAGE CLEANUP ---
+@celery.task
+def scheduled_cleanup():
+    """Deletes files older than 30 mins that weren't caught by main.py"""
+    folder = "temp_downloads"
+    now = time.time()
+    for f in os.listdir(folder):
+        f_path = os.path.join(folder, f)
+        if os.stat(f_path).st_mtime < now - 1800:
+            os.remove(f_path)

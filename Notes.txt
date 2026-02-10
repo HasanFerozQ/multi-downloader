@@ -7,9 +7,24 @@ frontend/.next/
 
 # Terminal 1
 cd C:\Users\Hasan-PC\Desktop\multi-downloader\backend
-& venv\Scripts\Activate.ps1
-uvicorn main:app --reload
+.\venv\Scripts\Activate.ps1
+uvicorn main:app --reload --port 8000
 
 # Terminal 2
+cd C:\Users\Hasan-PC\Desktop\multi-downloader\backend
+.\venv\Scripts\Activate.ps1
+# We point to the 'worker' file and the 'celery' variable inside it
+celery -A worker.celery worker --loglevel=info -P eventlet
+
+# Terminal 3
+cd C:\Users\Hasan-PC\Desktop\multi-downloader\backend
+.\venv\Scripts\Activate.ps1
+celery -A worker.celery beat --loglevel=info
+
+# Terminal 4
 cd C:\Users\Hasan-PC\Desktop\multi-downloader\frontend
 npm run dev
+
+
+
+No rate limiting (anyone can hammer your server), no download queue/Redis yet (concurrent downloads will slow each other down), FB/IG/TikTok require cookies for most content (private or logged-in content will fail), no progress bar during download, temp files could pile up if the server crashes mid-download, and the app has no way to handle platform bot detection which YouTube increasingly uses.
