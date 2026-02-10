@@ -1,0 +1,57 @@
+2026-02-10 14:27:04,405 - main - INFO - Starting Video Downloader API
+2026-02-10 14:27:04,408 - main - INFO - FFmpeg found at: C:\ffmpeg\bin\ffmpeg.EXE
+2026-02-10 14:27:04,412 - main - INFO - yt-dlp found at: C:\Users\Hasan-PC\AppData\Local\Programs\Python\Python313\Scripts\yt-dlp.EXE
+2026-02-10 14:27:04,412 - main - INFO - Started temp file cleanup task
+2026-02-10 14:27:16,282 - main - INFO - Analyze request for: https://www.facebook.com/watch?v=SOME_VIDEO_ID
+2026-02-10 14:27:16,283 - services.scraper - INFO - Using cookies for facebook.com: cookies_facebook.txt
+2026-02-10 14:27:16,415 - services.scraper - INFO - Extracting info for: https://www.facebook.com/watch?v=SOME_VIDEO_ID
+2026-02-10 14:27:22,749 - services.scraper - ERROR - DownloadError for https://www.facebook.com/watch?v=SOME_VIDEO_ID: ERROR: Unsupported URL: https://www.facebook.com/reel/
+2026-02-10 14:27:22,751 - main - ERROR - Scraper error for https://www.facebook.com/watch?v=SOME_VIDEO_ID: Could not fetch video: ERROR: Unsupported URL: https://www.facebook.com/reel/
+2026-02-10 14:27:22,752 - main - INFO - GET /analyze - Status: 400 - Time: 6.47s - IP: 127.0.0.1
+2026-02-10 14:27:26,533 - main - INFO - Analyze request for: https://www.youtube.com/watch?v=dQw4w9WgXcQ
+2026-02-10 14:27:26,534 - services.scraper - WARNING - No cookies found - private/logged-in content may fail
+2026-02-10 14:27:26,606 - services.scraper - INFO - Extracting info for: https://www.youtube.com/watch?v=dQw4w9WgXcQ
+2026-02-10 14:27:30,307 - services.scraper - INFO - Successfully extracted: Rick Astley - Never Gonna Give You Up (Official Video) (4K Remaster) (8 formats)
+2026-02-10 14:27:30,309 - main - INFO - Analysis successful: Rick Astley - Never Gonna Give You Up (Official Video) (4K Remaster)
+2026-02-10 14:27:30,310 - main - INFO - GET /analyze - Status: 200 - Time: 3.78s - IP: 127.0.0.1
+2026-02-10 14:29:19,946 - main - INFO - Starting Video Downloader API
+2026-02-10 14:29:19,949 - main - INFO - FFmpeg found at: C:\ffmpeg\bin\ffmpeg.EXE
+2026-02-10 14:29:19,950 - main - INFO - yt-dlp found at: C:\Users\Hasan-PC\Desktop\multi-downloader\backend\venv\Scripts\yt-dlp.EXE
+2026-02-10 14:29:19,950 - main - INFO - Started temp file cleanup task
+2026-02-10 14:29:34,957 - main - INFO - Analyze request for: https://www.facebook.com/reel/906504475831368/?rdid=p5PoqI3THY3opypS&share_url=https%3A%2F%2Fwww.facebook.com%2Fshare%2Fv%2F1B2WNehfUx%2F#
+2026-02-10 14:29:34,957 - services.scraper - INFO - Using cookies for facebook.com: cookies_facebook.txt
+2026-02-10 14:29:35,100 - services.scraper - INFO - Extracting info for: https://www.facebook.com/reel/906504475831368/?rdid=p5PoqI3THY3opypS&share_url=https%3A%2F%2Fwww.facebook.com%2Fshare%2Fv%2F1B2WNehfUx%2F#
+2026-02-10 14:29:38,187 - services.scraper - INFO - Successfully extracted: Video (3 formats)
+2026-02-10 14:29:38,189 - main - INFO - Analysis successful: Video
+2026-02-10 14:29:38,190 - main - INFO - GET /analyze - Status: 200 - Time: 3.24s - IP: 127.0.0.1
+2026-02-10 14:29:39,457 - main - INFO - Download request: https://www.facebook.com/reel/906504475831368/?rdid=p5PoqI3THY3opypS&share_url=https%3A%2F%2Fwww.facebook.com%2Fshare%2Fv%2F1B2WNehfUx%2F# - Format: 1228165349414759v - File: Video.mp4
+2026-02-10 14:29:39,467 - main - INFO - Using cookies: C:\Users\Hasan-PC\Desktop\multi-downloader\backend\cookies_facebook.txt
+2026-02-10 14:29:39,473 - main - INFO - Download command: yt-dlp -f best --merge-output-format mp4 --recode-video mp4 --no-playlist --no-warnings -o temp_downloads\d2320a545e4e4d9781047c46e838a669.mp4 https://www.facebook.com/reel/906504475831368/?rdid=p5PoqI3THY3opypS&share_url=https%3A%2F%2Fwww.facebook.com%2Fshare%2Fv%2F1B2WNehfUx%2F# --cookies C:\Users\Hasan-PC\Desktop\multi-downloader\backend\cookies_facebook.txt --ffmpeg-location C:\ffmpeg\bin\ffmpeg.EXE --user-agent Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36
+2026-02-10 14:30:28,768 - main - INFO - Download successful: temp_downloads\d2320a545e4e4d9781047c46e838a669.mp4 (14.50MB)
+2026-02-10 14:30:28,769 - main - INFO - Sending file: Video.mp4 (14.50MB)
+2026-02-10 14:30:28,771 - main - INFO - GET /download - Status: 200 - Time: 49.32s - IP: 127.0.0.1
+2026-02-10 14:30:28,915 - main - INFO - Deleted temp file: temp_downloads\d2320a545e4e4d9781047c46e838a669.mp4
+2026-02-10 14:31:02,493 - main - INFO - Analyze request for: https://www.youtube.com/watch?v=wZN-1pVgYMA
+2026-02-10 14:31:02,493 - services.scraper - WARNING - No cookies found - private/logged-in content may fail
+2026-02-10 14:31:02,569 - services.scraper - INFO - Extracting info for: https://www.youtube.com/watch?v=wZN-1pVgYMA
+2026-02-10 14:31:03,992 - services.scraper - INFO - Successfully extracted: cs 405 short lecture | lecture no 2 | final term preparation | most important topics CS 405 | (2 formats)
+2026-02-10 14:31:03,992 - main - INFO - Analysis successful: cs 405 short lecture | lecture no 2 | final term preparation | most important topics CS 405 |
+2026-02-10 14:31:03,993 - main - INFO - GET /analyze - Status: 200 - Time: 1.50s - IP: 127.0.0.1
+2026-02-10 14:31:07,343 - main - INFO - Download request: https://www.youtube.com/watch?v=wZN-1pVgYMA - Format: 136 - File: cs_405_short_lecture_lecture_no_2_final_term_preparation_mos.mp4
+2026-02-10 14:31:07,348 - main - INFO - Download command: yt-dlp -f 136+bestaudio[ext=m4a]/bestaudio/best --merge-output-format mp4 --no-playlist --no-warnings --postprocessor-args -c:v copy -c:a aac -strict -2 -o temp_downloads\1f5b0196bca148998d683a3de7703456.mp4 https://www.youtube.com/watch?v=wZN-1pVgYMA --ffmpeg-location C:\ffmpeg\bin\ffmpeg.EXE --user-agent Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36
+2026-02-10 14:31:31,700 - main - INFO - Download successful: temp_downloads\1f5b0196bca148998d683a3de7703456.mp4 (22.80MB)
+2026-02-10 14:31:31,700 - main - INFO - Sending file: cs_405_short_lecture_lecture_no_2_final_term_preparation_mos.mp4 (22.80MB)
+2026-02-10 14:31:31,701 - main - INFO - GET /download - Status: 200 - Time: 24.36s - IP: 127.0.0.1
+2026-02-10 14:31:34,096 - main - INFO - Deleted temp file: temp_downloads\1f5b0196bca148998d683a3de7703456.mp4
+2026-02-10 14:31:59,032 - main - INFO - Download request: https://www.youtube.com/watch?v=wZN-1pVgYMA - Format: mp3 - File: cs_405_short_lecture_lecture_no_2_final_term_preparation_mos.mp3
+2026-02-10 14:31:59,036 - main - INFO - Download command: yt-dlp -x --audio-format mp3 --audio-quality 0 --no-playlist --no-warnings -o temp_downloads\098c8e8c1f724c75afeede11895a1670.mp3 https://www.youtube.com/watch?v=wZN-1pVgYMA --ffmpeg-location C:\ffmpeg\bin\ffmpeg.EXE --user-agent Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36
+2026-02-10 14:32:27,795 - main - INFO - Download successful: temp_downloads\098c8e8c1f724c75afeede11895a1670.mp3 (16.02MB)
+2026-02-10 14:32:27,796 - main - INFO - Sending file: cs_405_short_lecture_lecture_no_2_final_term_preparation_mos.mp3 (16.02MB)
+2026-02-10 14:32:27,797 - main - INFO - GET /download - Status: 200 - Time: 28.77s - IP: 127.0.0.1
+2026-02-10 14:32:27,917 - main - INFO - Deleted temp file: temp_downloads\098c8e8c1f724c75afeede11895a1670.mp3
+2026-02-10 14:32:45,734 - main - INFO - Download request: https://www.youtube.com/watch?v=wZN-1pVgYMA - Format: mp3 - File: cs_405_short_lecture_lecture_no_2_final_term_preparation_mos.mp3
+2026-02-10 14:32:45,737 - main - INFO - Download command: yt-dlp -x --audio-format mp3 --audio-quality 0 --no-playlist --no-warnings -o temp_downloads\85457a165227470593308ae119a55dc8.mp3 https://www.youtube.com/watch?v=wZN-1pVgYMA --ffmpeg-location C:\ffmpeg\bin\ffmpeg.EXE --user-agent Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36
+2026-02-10 14:33:01,616 - main - INFO - Download successful: temp_downloads\85457a165227470593308ae119a55dc8.mp3 (16.02MB)
+2026-02-10 14:33:01,616 - main - INFO - Sending file: cs_405_short_lecture_lecture_no_2_final_term_preparation_mos.mp3 (16.02MB)
+2026-02-10 14:33:01,617 - main - INFO - GET /download - Status: 200 - Time: 15.88s - IP: 127.0.0.1
+2026-02-10 14:33:01,743 - main - INFO - Deleted temp file: temp_downloads\85457a165227470593308ae119a55dc8.mp3

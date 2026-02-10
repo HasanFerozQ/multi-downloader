@@ -1,0 +1,15 @@
+One thing to exclude first (to keep the zip small) — delete or skip these folders before zipping:
+
+backend/venv/
+frontend/node_modules/
+frontend/.next/
+
+
+# Terminal 1
+cd C:\Users\Hasan-PC\Desktop\multi-downloader\backend
+& venv\Scripts\Activate.ps1
+uvicorn main:app --reload
+
+# Terminal 2
+cd C:\Users\Hasan-PC\Desktop\multi-downloader\frontend
+npm run dev
