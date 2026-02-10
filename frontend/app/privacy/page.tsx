@@ -37,6 +37,22 @@ export default function PrivacyPolicy() {
           <p>This site contains links to external donation platforms (Binance Pay). We are not responsible for the privacy practices or content of these third-party platforms.</p>
         </section>
 
+        {/* SECTION 5: GDPR / EUROPEAN USER RIGHTS */}
+<section className="mb-10 border-b border-white/5 pb-6">
+  <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+    <span className="text-blue-500">05.</span> GDPR Compliance (EU Users)
+  </h2>
+  <p className="mb-4 text-sm text-slate-400">
+    If you are a resident of the European Economic Area (EEA), you have specific data protection rights under the GDPR. King Downloader acts as a Data Controller for minimal server logs and a Data Processor for media conversion.
+  </p>
+  <ul className="list-disc ml-6 space-y-2 text-sm text-slate-400">
+    <li><strong>Right to Access:</strong> You can request information about any logs we hold regarding your IP address (deleted every 24 hours).</li>
+    <li><strong>Right to Erasure:</strong> All media files are automatically erased within 30 minutes of processing.</li>
+    <li><strong>Data Portability:</strong> As we do not store personal accounts, there is no personal data to "port" or transfer.</li>
+    <li><strong>Consent for Ads:</strong> By using this site, you acknowledge that our partners (Adsterra/PropellerAds) may process data for personalized advertising based on your consent settings.</li>
+  </ul>
+</section>
+
         <footer className="mt-20 pt-8 border-t border-white/10 text-xs text-slate-500 italic">
           For legal inquiries, contact: prodat.courses@gmail.com
         </footer>
