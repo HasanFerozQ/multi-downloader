@@ -28,3 +28,45 @@ npm run dev
 
 
 No rate limiting (anyone can hammer your server), no download queue/Redis yet (concurrent downloads will slow each other down), FB/IG/TikTok require cookies for most content (private or logged-in content will fail), no progress bar during download, temp files could pile up if the server crashes mid-download, and the app has no way to handle platform bot detection which YouTube increasingly uses.
+
+
+
+1. Preparation: The "Legal" Foundation
+Before applying for ads or hosting, we must finalize the content that makes the site look "Premium" to crawlers:
+
+Terms of Service & Privacy Policy: Dedicated pages that define user responsibility and data handling.
+
+Rectangle Support Section: A clean UI block containing your Binance Pay ID (86846518), a QR code, and a global USDT (TRC-20) wallet address.
+
+One-Click Support: A direct Binance Payment Link for instant USDT donations.
+
+2. Infrastructure: Hosting & Domain
+Since you can afford the $6/month DigitalOcean VPS, we avoid the "sleeping" issues of free tiers:
+
+Frontend: Host on Vercel or Netlify ($0) for global speed and automatic GitHub deployments.
+
+Backend (The Droplet): A 1GB RAM Ubuntu VPS to run FastAPI, Redis, and Celery.
+
+Media Engine: Install FFmpeg on the VPS to handle high-resolution 1080p merging using the H.264 (avc1) codec for 100% compatibility.
+
+Domain: Register a cheap domain (e.g., .xyz or .site) and point it to your VPS IP.
+
+3. Monetization: Adsterra & PropellerAds
+We will skip AdSense to avoid copyright bans and use networks that specialize in utility traffic:
+
+Ad Stacking: Use Adsterra for the 160x600 side pillars and PropellerAds for the sticky footer and Anti-AdBlock features.
+
+Clean Mode: Maintain user trust by offering a "Hide Ads" toggle, which encourages users to donate via Binance instead.
+
+Payment: Withdraw your ad earnings directly in Crypto/USDT, fitting your project's theme.
+
+4. Execution Roadmap
+Push Code: Move your finalized page.tsx, worker.py, and legal pages to GitHub.
+
+Launch Frontend: Connect GitHub to Vercel/Netlify to get a live URL.
+
+Setup VPS: Create the DigitalOcean Droplet, install dependencies (Python, Redis, FFmpeg), and run the backend.
+
+Connect Both: Update your frontend BACKEND_URL to point to your VPS IP/Domain.
+
+Monetize: Once the site is live and functional, submit the URL to Adsterra and PropellerAds for instant/fast approval.
