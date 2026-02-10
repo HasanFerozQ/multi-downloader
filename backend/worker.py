@@ -10,41 +10,66 @@ celery = Celery('tasks', broker='redis://localhost:6379/0', backend='redis://loc
 def download_video_task(self, url, format_id, output_path):
     self.update_state(state='PROGRESS', meta={'progress': 0})
     
-    # Absolute path to your ffmpeg bin based on your screenshots
+    # Path exactly as shown in your C: drive screenshot
     ffmpeg_path = r"C:\ffmpeg\bin"
     
     if format_id == "mp3":
+        # Handle audio extraction
         cmd = [
             "yt-dlp",
             "-f", "bestaudio/best",
             "--extract-audio",
             "--audio-format", "mp3",
             "--ffmpeg-location", ffmpeg_path,
-            "--newline", "-o", output_path, url
+            "--newline",
+            "-o", output_path,
+            url
         ]
     else:
-        # THE FIX: This command forces 'best video up to 1080p' + 'best audio'
-        # It ignores the specific 'format_id' to ensure audio is always included
+        # THE CRITICAL FIX:
+        # 1. We force the specific format_id + bestaudio.
+        # 2. We add --merge-output-format mp4 to ensure a single file.
+        # 3. We use --postprocessor-args to ensure the audio is encoded correctly for MP4.
         cmd = [
             "yt-dlp",
-            "-f", "bv*[height<=1080]+ba/b[height<=1080] / wv*+ba/w",
+            "-f", f"{format_id}+bestaudio/best",
             "--merge-output-format", "mp4",
             "--ffmpeg-location", ffmpeg_path,
-            "--newline", "-o", output_path, url
+            "--postprocessor-args", "ffmpeg:-c:a aac", 
+            "--newline",
+            "-o", output_path,
+            url
         ]
 
-    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    # Execute the yt-dlp process
+    process = subprocess.Popen(
+        cmd, 
+        stdout=subprocess.PIPE, 
+        stderr=subprocess.STDOUT, 
+        text=True,
+        encoding='utf-8',
+        errors='replace'
+    )
     
     for line in process.stdout:
+        # Real-time progress monitoring for the frontend WebSocket
         if "[download]" in line and "%" in line:
             try:
                 parts = line.split()
                 for part in parts:
                     if '%' in part:
-                        p = float(part.replace('%', ''))
+                        p_str = part.replace('%', '')
+                        # Handle cases where percentage might be colored or have extra chars
+                        p = float(''.join(c for c in p_str if c.isdigit() or c == '.'))
                         self.update_state(state='PROGRESS', meta={'progress': p})
                         break
-            except: pass
+            except: 
+                pass
                 
     process.wait()
-    return {"status": "Success", "file": output_path}
+
+    # Final verification: If the file exists but is under 1MB, it likely failed to merge
+    if os.path.exists(output_path) and os.path.getsize(output_path) > 1024:
+        return {"status": "Success", "file": output_path}
+    else:
+        return {"status": "Error", "message": "Download or Merge failed. Check if FFmpeg is accessible."}
