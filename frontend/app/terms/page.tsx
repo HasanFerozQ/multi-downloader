@@ -32,7 +32,7 @@ export default function TermsOfService() {
         </section>
 
         <footer className="mt-12 pt-8 border-t border-white/10">
-          <p className="text-sm">Contact: support@kingdownloader.com (Replace with your actual email later)</p>
+          <p className="text-sm">Contact: prodat.courses@gmail.com </p>
         </footer>
       </div>
     </main>
