@@ -1,8 +1,14 @@
+# Dependencies
 node_modules/
 .next/
 venv/
 __pycache__/
-*.mp4
-temp_downloads/
-.DS_Store
 
+# Downloads
+temp_downloads/
+*.mp4
+*.mp3
+
+# Environment
+.env
+.DS_Store
