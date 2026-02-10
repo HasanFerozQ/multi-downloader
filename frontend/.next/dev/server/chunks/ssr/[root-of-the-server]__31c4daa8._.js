@@ -72,8 +72,15 @@ var __TURBOPACK__imported__module__$5b$next$5d2f$internal$2f$font$2f$google$2f$g
 ;
 ;
 const metadata = {
-    title: "King Downloader | Pro Video & MP3",
-    description: "High-speed 1080p video & 320kbps MP3 downloader",
+    title: "King Downloader | Safe 1080p Video Downloader | No Pop-up Ads",
+    description: "The fastest, safest way to download 1080p videos and HQ MP3s. 100% clean experience with no redirecting ads or malicious pop-ups.",
+    keywords: [
+        "Safe Video Downloader",
+        "No Pop-up Ads Downloader",
+        "Fastest Video Downloader",
+        "High Quality MP3",
+        "1080p Video Downloader"
+    ],
     icons: {
         icon: "/favicon.ico"
     }

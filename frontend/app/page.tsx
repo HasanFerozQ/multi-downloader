@@ -170,14 +170,19 @@ export default function Home() {
       </div>
 
       {/* STICKY FOOTER - Adaptive size for Mobile vs Desktop */}
-      <footer className="fixed bottom-0 left-0 w-full h-16 md:h-20 bg-[#0f172a]/95 backdrop-blur-lg border-t border-white/10 flex items-center justify-center z-50">
-        <div className="flex items-center gap-4 px-4 w-full justify-center">
-           <span className="text-[9px] font-black text-slate-700 uppercase tracking-widest hidden lg:block">Sponsor</span>
-           <div className="w-full max-w-[320px] md:max-w-[728px] h-[50px] bg-white/5 rounded border border-white/5 flex items-center justify-center italic text-slate-700 text-[9px] md:text-[10px]">
-              SAFE STICKY AD (320x50 on Mobile / 728x50 on Desktop)
-           </div>
-        </div>
-      </footer>
+      
+<footer className="fixed bottom-0 left-0 w-full h-20 bg-[#0f172a]/95 backdrop-blur-lg border-t border-white/10 flex items-center justify-center z-50">
+  <div className="flex flex-col md:flex-row items-center gap-4 px-4 w-full justify-center">
+     <div className="w-full max-w-[320px] md:max-w-[728px] h-[50px] bg-white/5 rounded border border-white/5 flex items-center justify-center italic text-slate-700 text-[9px]">
+        SAFE STICKY AD AREA
+     </div>
+     {/* LEGAL LINKS FOR AD NETWORKS */}
+     <div className="flex gap-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+        <a href="/terms" target="_blank" className="hover:text-blue-500 transition">Terms</a>
+        <a href="#" className="hover:text-blue-500 transition">Privacy</a>
+     </div>
+  </div>
+</footer>
     </main>
   );
 }
