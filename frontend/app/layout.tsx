@@ -12,10 +12,10 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-// Professional Branding Metadata
 export const metadata: Metadata = {
-  title: "King Downloader | Pro Video & MP3",
-  description: "High-speed 1080p video & 320kbps MP3 downloader",
+  title: "King Downloader | Fastest Video Downloader & High Quality MP3",
+  description: "Download 1080p YouTube videos, convert FB to MP3, and extract media from TikTok, X, and IG instantly with King Downloader.",
+  keywords: ["Fastest Video Downloader", "High Quality MP3", "1080p Video Downloader", "Convert FB to MP3", "YouTube Downloader"],
   icons: {
     icon: "/favicon.ico", 
   },
