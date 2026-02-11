@@ -51,7 +51,9 @@ export default function PrivacyPolicy() {
   </ul>
 </section>
 
-      
+        <footer className="mt-12 pt-8 border-t border-white/10 text-xs text-slate-500">
+          Contact: legal@kingdownloader.com | Subject to the laws of Pakistan.
+        </footer>      
       </div>
     </main>
   );
