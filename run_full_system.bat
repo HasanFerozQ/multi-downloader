@@ -2,29 +2,53 @@
 TITLE King Tools Master Launcher
 color 0B
 
+:: --- CONFIGURATION ---
+set ROOT_DIR=%~dp0
+set BACKEND_DIR=%ROOT_DIR%backend
+set FRONTEND_DIR=%ROOT_DIR%frontend
+set FFMPEG_PATH=C:\ffmpeg\bin
+set PATH=%PATH%;%FFMPEG_PATH%
+
 echo ====================================================
-echo   KING TOOLS - FULL SYSTEM RESTORATION
+echo   KING TOOLS - FULL SYSTEM BOOT
 echo ====================================================
 echo.
 
-:: 1. Start the Backend Services
-echo [1/2] Launching Backend (FastAPI + Celery + Redis)...
-:: We enter the backend folder specifically to find run_test.bat
-start "King Backend" cmd /k "cd /d %%cd%%\backend && run_test.bat"
-
-:: 2. Start the Frontend UI
-echo [2/2] Launching Frontend UI (Next.js)...
-:: Deleting cache automatically to prevent Turbopack panics
-if exist "frontend\.next" (
-    echo [INFO] Clearing corrupted Next.js cache...
-    rmdir /s /q "frontend\.next"
+:: 1. Start Redis Server (Global Check)
+echo [1/5] Checking Redis Connection...
+tasklist /fi "imagename eq redis-server.exe" | find ":" > nul
+if errorlevel 1 (
+    echo Redis is already running.
+) else (
+    echo Starting Redis Server...
+    start "Redis Server" cmd /k "redis-server"
+    timeout /t 2 > nul
 )
-start "King Frontend" cmd /k "cd /d %%cd%%\frontend && npm run dev"
+
+:: 2. Terminal 1: FastAPI Backend
+echo [2/5] Launching FastAPI Backend...
+start "FastAPI Backend" cmd /k "cd /d %BACKEND_DIR% && .\venv\Scripts\activate && uvicorn main:app --reload --port 8000"
+
+:: 3. Terminal 2: Celery Worker
+echo [3/5] Launching Celery Worker...
+:: Using -A worker pointing to worker.py
+start "Celery Worker" cmd /k "cd /d %BACKEND_DIR% && .\venv\Scripts\activate && celery -A worker worker --loglevel=info --pool=solo"
+
+:: 4. Terminal 3: Celery Beat
+echo [4/5] Launching Celery Beat...
+start "Celery Beat" cmd /k "cd /d %BACKEND_DIR% && .\venv\Scripts\activate && celery -A worker beat --loglevel=info"
+
+:: 5. Terminal 4: Frontend UI
+echo [5/5] Launching Frontend UI...
+:: Automatically clearing Turbopack cache to prevent crashes
+if exist "%FRONTEND_DIR%\.next" rmdir /s /q "%FRONTEND_DIR%\.next"
+start "King Frontend" cmd /k "cd /d %FRONTEND_DIR% && npm run dev"
 
 echo.
 echo ====================================================
-echo   SYSTEMS BOOTING
-echo   - If Frontend fails, wait 10 seconds and refresh
+echo   ALL SYSTEMS ONLINE
+echo   - Backend:  http://localhost:8000
+echo   - Frontend: http://localhost:3000
 echo ====================================================
 echo.
 pause
