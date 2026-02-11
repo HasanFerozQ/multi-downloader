@@ -85,26 +85,42 @@ async def start_download(request: Request, url: str, format_id: str = "best"):
     download_video_task.apply_async(args=[url, format_id, output_path], task_id=task_id)
     return {"task_id": task_id}
 
-@app.get("/download/file/{task_id}")
-async def get_actual_file(task_id: str, background_tasks: BackgroundTasks, title: str = "video"):
-    """Handles professional file naming and auto-cleanup"""
-    file_path = f"temp_downloads/{task_id}.mp4"
-    safe_title = re.sub(r'[\\/*?:"<>|]', "", title)[:50] 
+# backend/main.py
+
+@app.get("/analyze/seo")
+async def analyze_seo(url: str):
+    validate_url(url)
+    data = get_video_info(url)
+    if "error" in data: raise HTTPException(status_code=400, detail=data["error"])
     
-    if os.path.exists(file_path):
-        def remove_file():
-            try: os.remove(file_path)
-            except: pass
+    views = data.get("view_count", 0)
+    # Social Blade Logic: Calculate Engagement
+    # (Assuming likes/comments come from scraper)
+    likes = data.get("like_count", 0)
+    comments = data.get("comment_count", 0)
+    engagement_rate = round(((likes + comments) / views) * 100, 2) if views > 0 else 0
 
-        response = FileResponse(
-            path=file_path,
-            filename=f"{safe_title}.mp4",
-            media_type='application/octet-stream'
-        )
-        background_tasks.add_task(remove_file) 
-        return response
-    raise HTTPException(status_code=404, detail="File expired")
-
+    # Calculate Social Blade style "Grade"
+    if views > 1000000: grade = "A+"
+    elif views > 500000: grade = "A"
+    elif views > 100000: grade = "B+"
+    elif views > 10000: grade = "B"
+    else: grade = "C"
+    
+    est_low = (views / 1000) * 2
+    est_high = (views / 1000) * 5
+    
+    return {
+        "title": data.get("title"),
+        "uploader": data.get("uploader"),
+        "view_count": views,
+        "grade": grade,
+        "engagement_rate": engagement_rate,
+        "earnings": {"low": round(est_low, 2), "high": round(est_high, 2)},
+        "tags": data.get("tags", []),
+        "thumbnail": data.get("thumbnail"),
+        "duration": data.get("duration_string")
+    }
 @app.websocket("/ws/progress/{task_id}")
 async def websocket_progress(websocket: WebSocket, task_id: str):
     await websocket.accept()

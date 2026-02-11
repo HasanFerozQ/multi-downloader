@@ -7,23 +7,21 @@ export default function Navbar() {
   const pathname = usePathname();
 
   const navItems = [
-    { name: "Video Analyzer", path: "/analyzer", icon: <BarChart3 size={18} /> },
     { name: "5-in-1 Downloader", path: "/", icon: <Download size={18} /> },
+    { name: "Video Analyzer", path: "/analyzer", icon: <BarChart3 size={18} /> },
     { name: "Transcriber", path: "/transcriber", icon: <Languages size={18} /> },
   ];
 
   return (
-    <nav className="fixed top-0 left-0 w-full bg-[#0f172a]/80 backdrop-blur-xl border-b border-white/5 z-[100]">
-      <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-        {/* LOGO */}
+    <nav className="fixed top-0 left-0 w-full bg-[#0f172a]/80 backdrop-blur-xl border-b border-white/5 z-[100] h-16">
+      <div className="max-w-6xl mx-auto px-4 h-full flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2 group">
           <div className="bg-blue-600 p-1.5 rounded-lg group-hover:rotate-12 transition-transform">
             <Crown size={20} className="text-white" />
           </div>
-          <span className="font-black text-white tracking-tighter hidden sm:block">KING TOOLS</span>
+          <span className="font-black text-white tracking-tighter hidden sm:block uppercase italic">King Tools</span>
         </Link>
 
-        {/* NAV LINKS (Desktop) */}
         <div className="flex gap-1 md:gap-4 bg-white/5 p-1 rounded-xl border border-white/5">
           {navItems.map((item) => (
             <Link
@@ -36,7 +34,7 @@ export default function Navbar() {
               }`}
             >
               {item.icon}
-              <span className={item.path === "/" ? "hidden md:inline" : ""}>{item.name}</span>
+              <span className="hidden lg:inline">{item.name}</span>
             </Link>
           ))}
         </div>
