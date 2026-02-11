@@ -31,16 +31,14 @@ start "FastAPI Backend" cmd /k "cd /d %BACKEND_DIR% && .\venv\Scripts\activate &
 
 :: 3. Terminal 2: Celery Worker
 echo [3/5] Launching Celery Worker...
-:: Using -A worker pointing to worker.py
 start "Celery Worker" cmd /k "cd /d %BACKEND_DIR% && .\venv\Scripts\activate && celery -A worker worker --loglevel=info --pool=solo"
 
-:: 4. Terminal 3: Celery Beat
+:: 4. Terminal 3: Celery Beat (FIXED LINE BREAK)
 echo [4/5] Launching Celery Beat...
 start "Celery Beat" cmd /k "cd /d %BACKEND_DIR% && .\venv\Scripts\activate && celery -A worker beat --loglevel=info"
 
 :: 5. Terminal 4: Frontend UI
 echo [5/5] Launching Frontend UI...
-:: Automatically clearing Turbopack cache to prevent crashes
 if exist "%FRONTEND_DIR%\.next" rmdir /s /q "%FRONTEND_DIR%\.next"
 start "King Frontend" cmd /k "cd /d %FRONTEND_DIR% && npm run dev"
 
