@@ -1,9 +1,0 @@
-[00:00:02.168] Server  LOG     ✓ Ready in 1482ms
-[00:00:05.267] Server  LOG     ○ Compiling /analyzer ...
-[00:00:06.978] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-[00:01:46.481] Server  LOG     ✓ Compiled in 711ms
-[00:01:50.770] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-[00:04:11.335] Server  LOG     ✓ Compiled in 112ms
-[00:04:16.700] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-[00:07:53.889] Server  LOG     ✓ Compiled in 130ms
-[00:08:15.535] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
