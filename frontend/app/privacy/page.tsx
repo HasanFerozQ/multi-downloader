@@ -1,43 +1,41 @@
+import { EyeOff, Database, Cookie, Globe } from "lucide-react";
+
 export default function PrivacyPolicy() {
   return (
     <main className="min-h-screen bg-[#020617] text-slate-300 p-8 md:p-24 font-sans leading-relaxed">
       <div className="max-w-4xl mx-auto">
         <h1 className="text-4xl font-black text-white mb-8 uppercase tracking-tighter">Privacy Policy</h1>
-        <p className="mb-6 text-blue-500 font-bold">Last Updated: February 10, 2026</p>
+        <p className="mb-6">Updated: February 11, 2026</p>
 
-        {/* SECTION 1: DATA COLLECTION */}
-        <section className="mb-10 border-b border-white/5 pb-6">
-          <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-            <span className="text-blue-500">01.</span> Data Collection
-          </h2>
-          <p>We do not require any registration or personal accounts to use King Downloader. We do not collect names, emails, or personal identifiers. We may log non-identifiable information like your IP address or browser type strictly for security and server performance monitoring.</p>
-        </section>
-
-        {/* SECTION 2: ADVERTISING COOKIES */}
-        <section className="mb-10 border-b border-white/5 pb-6">
-          <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-            <span className="text-blue-500">02.</span> Advertising & Cookies
-          </h2>
-          <p>We partner with third-party ad networks (Adsterra and PropellerAds) to serve ads. These partners may use cookies to serve ads based on your visit to this and other sites. You can manage or disable cookies at any time through your browser settings.</p>
-        </section>
-
-        {/* SECTION 3: MEDIA PROCESSING */}
-        <section className="mb-10 border-b border-white/5 pb-6">
-          <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-            <span className="text-blue-500">03.</span> Media Processing
-          </h2>
-          <p>All video and audio files processed by our DigitalOcean VPS engine are temporary. Our automated background tasks delete all downloaded media from our storage within 30 minutes of processing to ensure user privacy and server efficiency.</p>
-        </section>
-
-        {/* SECTION 4: THIRD-PARTY LINKS */}
         <section className="mb-10">
-          <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-            <span className="text-blue-500">04.</span> Third-Party Services
+          <h2 className="text-xl font-bold text-blue-500 mb-4 flex items-center gap-2 uppercase tracking-wide">
+            <EyeOff size={20} /> 1. Anonymous Use
           </h2>
-          <p>This site contains links to external donation platforms (Binance Pay). We are not responsible for the privacy practices or content of these third-party platforms.</p>
+          <p>You may visit King Downloader anonymously. We do not keep a history of your downloads or store media on our servers for longer than the processing period.</p>
         </section>
 
-        {/* SECTION 5: GDPR / EUROPEAN USER RIGHTS */}
+        <section className="mb-10 border-b border-white/5 pb-10">
+          <h2 className="text-xl font-bold text-blue-500 mb-4 flex items-center gap-2 uppercase tracking-wide">
+            <Database size={20} /> 2. Data We Collect
+          </h2>
+          <p>We collect non-personal identification information, such as browser names, OS types, and technical connection data, to optimize our service performance.</p>
+        </section>
+
+        <section className="mb-10">
+          <h2 className="text-xl font-bold text-blue-500 mb-4 flex items-center gap-2 uppercase tracking-wide">
+            <Cookie size={20} /> 3. Advertising & Cookies
+          </h2>
+          <p>Our site uses cookies to enhance user experience and serve ads. Third-party partners (Adsterra, PropellerAds) may use cookies to deliver targeted advertisements based on your visits to this and other sites.</p>
+        </section>
+
+        <section className="mb-10 bg-blue-500/5 p-6 rounded-2xl border border-blue-500/20">
+          <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2 uppercase tracking-wide">
+            <Globe size={20} /> 4. GDPR Compliance (EU Users)
+          </h2>
+          <p className="text-sm">If you reside in the EEA, you have the right to access, rectify, or erase your minimal log data. All temporary processing files are automatically deleted within 30 minutes to ensure compliance with data minimization principles.</p>
+        </section>
+
+         {/* SECTION 5: GDPR / EUROPEAN USER RIGHTS */}
 <section className="mb-10 border-b border-white/5 pb-6">
   <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
     <span className="text-blue-500">05.</span> GDPR Compliance (EU Users)
@@ -53,10 +51,9 @@ export default function PrivacyPolicy() {
   </ul>
 </section>
 
-        <footer className="mt-20 pt-8 border-t border-white/10 text-xs text-slate-500 italic">
-          For legal inquiries, contact: prodat.courses@gmail.com
-        </footer>
+      
       </div>
     </main>
   );
 }
+               
