@@ -6,6 +6,7 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 from worker import download_video_task 
 from services.scraper import get_video_info  # CORRECT: services folder exists
+from services.video_analyzer import analyze_video_comprehensive
 
 app = FastAPI(title="Pro StreamDown API")
 r = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)
@@ -146,3 +147,23 @@ async def websocket_progress(websocket: WebSocket, task_id: str):
             await websocket.send_json({"status": "Error", "message": str(e)})
         except:
             pass
+
+@app.get("/analyze-video")
+@limiter.limit("10/minute")
+async def analyze_video_endpoint(request: Request, url: str):
+    """Comprehensive video analysis endpoint"""
+    validate_url(url)
+    
+    cache_key = f"analysis:{url}"
+    cached = r.get(cache_key)
+    if cached:
+        return json.loads(cached)
+    
+    result = analyze_video_comprehensive(url)
+    
+    if "error" in result:
+        raise HTTPException(status_code=400, detail=result["error"])
+    
+    # Cache for 1 hour
+    r.setex(cache_key, 3600, json.dumps(result))
+    return result
