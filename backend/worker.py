@@ -1,4 +1,11 @@
 import os, subprocess, time, shutil
+
+# Python 3.13 compatibility fix - MUST be imported before Celery
+try:
+    import billiard_fix
+except ImportError:
+    pass  # Skip if not using Python 3.13
+
 from celery import Celery
 
 celery = Celery('worker', 

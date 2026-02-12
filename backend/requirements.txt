@@ -4,6 +4,7 @@ uvicorn[standard]==0.27.0
 yt-dlp>=2024.2.0
 python-dotenv==1.0.0
 aiohttp==3.9.1
+python-multipart==0.0.6
 
 # Rate limiting
 slowapi==0.1.9
@@ -14,12 +15,20 @@ pydantic-settings==2.1.0
 # Retry logic
 tenacity==8.2.3
 
-# Optional: Queue system (uncomment if using Celery)
+# Task Queue & Caching
 redis==5.0.1
 celery==5.3.4
+kombu==5.3.4
+billiard==4.2.0
 
 # Optional: Error tracking (uncomment if using Sentry)
 # sentry-sdk[fastapi]==1.40.0
 
 # Optional: Async subprocess (uncomment if needed)
 # asyncio-subprocess==0.1.5
+
+
+# WebSocket Support
+websockets==12.0
+
+
