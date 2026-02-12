@@ -1,238 +1,260 @@
-// frontend/app/page.tsx
-"use client";
-import { useState } from "react";
-import { Search, BarChart3, TrendingUp, AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
-import DonationSection from "@/components/DonationSection";
+'use client';
 
-interface AnalysisResult {
-  score: number;
-  grade: string;
+import { useState } from 'react';
+
+// Type definitions
+interface VideoInfo {
   title: string;
-  view_count: number;
-  like_count: number;
-  engagement_rate: number;
-  issues: Array<{
-    category: string;
-    impact: number;
-    message: string;
-  }>;
-  strengths: Array<{
-    category: string;
-    message: string;
-  }>;
-  suggestions: string[];
-  metadata: {
-    tag_count: number;
-    description_length: number;
-    hashtag_count: number;
-    timestamp_count: number;
-  };
+  duration: string;
+  thumbnail: string;
+  formats: VideoFormat[];
+  view_count?: number;
+  uploader?: string;
+}
+
+interface VideoFormat {
+  format_id: string;
+  ext: string;
+  quality: string;
+  filesize?: number;
+  acodec?: string;
+  vcodec?: string;
+}
+
+interface AnalysisResponse {
+  success: boolean;
+  data?: VideoInfo;
+  error?: string;
 }
 
 export default function VideoAnalyzerPage() {
-  const [url, setUrl] = useState("");
+  const [url, setUrl] = useState('');
+  const [videoInfo, setVideoInfo] = useState<VideoInfo | null>(null);
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<AnalysisResult | null>(null);
-  const [error, setError] = useState("");
+  const [error, setError] = useState('');
+  const [selectedFormat, setSelectedFormat] = useState('');
+  const [downloading, setDownloading] = useState(false);
 
-  const analyzeVideo = async () => {
+  // ✅ FIX: URL validation
+  const isValidUrl = (urlString: string): boolean => {
+    try {
+      const url = new URL(urlString);
+      const validDomains = [
+        'youtube.com', 'youtu.be',
+        'facebook.com', 'fb.watch',
+        'instagram.com',
+        'tiktok.com',
+        'twitter.com', 'x.com'
+      ];
+      return validDomains.some(domain => url.hostname.includes(domain));
+    } catch {
+      return false;
+    }
+  };
+
+  // ✅ FIX: Proper error handling in analyze function
+  const handleAnalyze = async () => {
     if (!url.trim()) {
-      setError("Please enter a YouTube URL");
+      setError('Please enter a video URL');
+      return;
+    }
+
+    if (!isValidUrl(url)) {
+      setError('Invalid URL. Supported: YouTube, Facebook, Instagram, TikTok, Twitter/X');
       return;
     }
 
     setLoading(true);
-    setError("");
-    setResult(null);
+    setError('');
+    setVideoInfo(null);
+    setSelectedFormat('');
 
     try {
-      const response = await fetch(`http://localhost:8000/analyze-video?url=${encodeURIComponent(url)}`);
-      const data = await response.json();
+      const response = await fetch('http://localhost:8000/api/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+      });
 
-      if (data.error) {
-        setError(data.error);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result: AnalysisResponse = await response.json();
+
+      if (result.success && result.data) {
+        setVideoInfo(result.data);
+        
+        // ✅ FIX: Safe array access with null check
+        if (result.data.formats && result.data.formats.length > 0) {
+          setSelectedFormat(result.data.formats[0].format_id);
+        }
       } else {
-        setResult(data);
+        throw new Error(result.error || 'Failed to analyze video');
       }
     } catch (err) {
-      setError("Failed to analyze video. Make sure backend is running.");
+      console.error('Analysis error:', err);
+      setError(err instanceof Error ? err.message : 'Failed to analyze video');
     } finally {
       setLoading(false);
     }
   };
 
-  const getScoreColor = (score: number) => {
-    if (score >= 85) return "text-green-500";
-    if (score >= 70) return "text-yellow-500";
-    return "text-red-500";
+  // ✅ FIX: Download handler with proper error handling
+  const handleDownload = async () => {
+    if (!selectedFormat) {
+      setError('Please select a format');
+      return;
+    }
+
+    setDownloading(true);
+    setError('');
+
+    try {
+      const response = await fetch('http://localhost:8000/api/download', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url, format_id: selectedFormat }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+
+      const contentDisposition = response.headers.get('Content-Disposition');
+      let filename = 'video.mp4';
+      
+      if (contentDisposition) {
+        const match = contentDisposition.match(/filename="?(.+)"?/i);
+        if (match?.[1]) filename = match[1];
+      }
+
+      const blob = await response.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(downloadUrl);
+
+      setError('✓ Download completed!');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Download failed');
+    } finally {
+      setDownloading(false);
+    }
   };
 
-  const getScoreBg = (score: number) => {
-    if (score >= 85) return "from-green-600/20 to-emerald-600/10 border-green-500/20";
-    if (score >= 70) return "from-yellow-600/20 to-amber-600/10 border-yellow-500/20";
-    return "from-red-600/20 to-rose-600/10 border-red-500/20";
+  // ✅ FIX: Format file size with null check
+  const formatFileSize = (bytes?: number): string => {
+    if (!bytes || bytes === 0) return 'Unknown';
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+    return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
   };
 
   return (
-    <div className="min-h-screen bg-[#020617] text-white px-4 py-8">
-      <div className="max-w-5xl mx-auto">
-        
-        {/* HERO SECTION */}
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 p-8">
+      <div className="max-w-4xl mx-auto">
         <div className="text-center mb-12">
-          <div className="inline-flex items-center gap-2 bg-blue-600/20 px-4 py-2 rounded-full mb-6">
-            <BarChart3 className="text-blue-400" size={20} />
-            <span className="text-sm font-bold uppercase tracking-wider">Video SEO Analyzer</span>
-          </div>
-          
-          <h1 className="text-5xl md:text-6xl font-black mb-4 bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent leading-tight">
-            Optimize Your YouTube Videos
-          </h1>
-          
-          <p className="text-slate-400 text-lg max-w-2xl mx-auto">
-            Get comprehensive SEO analysis with 15+ checks. Improve your rankings, engagement, and visibility.
-          </p>
+          <h1 className="text-5xl font-bold text-white mb-4">🎬 Video Downloader</h1>
+          <p className="text-gray-300 text-lg">YouTube • Facebook • Instagram • TikTok • Twitter</p>
         </div>
 
-        {/* INPUT SECTION */}
-        <div className="bg-slate-900/50 backdrop-blur-xl border border-white/10 rounded-2xl p-8 mb-8">
-          <div className="flex flex-col md:flex-row gap-4">
+        <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 shadow-2xl mb-8">
+          <div className="space-y-4">
             <input
               type="text"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && analyzeVideo()}
-              placeholder="Paste YouTube URL here..."
-              className="flex-1 bg-slate-800/50 border border-white/10 rounded-xl px-6 py-4 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
+              onKeyPress={(e) => e.key === 'Enter' && handleAnalyze()}
+              placeholder="Paste video URL here..."
+              className="w-full px-6 py-4 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              disabled={loading || downloading}
             />
+            
+            {url && (
+              <p className={`text-sm ${isValidUrl(url) ? 'text-green-400' : 'text-red-400'}`}>
+                {isValidUrl(url) ? '✓ Valid URL' : '✗ Invalid URL'}
+              </p>
+            )}
+
             <button
-              onClick={analyzeVideo}
-              disabled={loading}
-              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 disabled:from-slate-600 disabled:to-slate-600 text-white font-bold px-8 py-4 rounded-xl transition-all flex items-center justify-center gap-2 uppercase tracking-wide disabled:cursor-not-allowed"
+              onClick={handleAnalyze}
+              disabled={loading || downloading || !url || !isValidUrl(url)}
+              className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 disabled:from-gray-600 disabled:to-gray-700 text-white font-semibold py-4 px-6 rounded-xl transition-all transform hover:scale-105 disabled:scale-100"
             >
-              {loading ? (
-                <>
-                  <Loader2 className="animate-spin" size={20} />
-                  Analyzing...
-                </>
-              ) : (
-                <>
-                  <Search size={20} />
-                  Analyze
-                </>
-              )}
+              {loading ? '⏳ Analyzing...' : '🔍 Analyze Video'}
             </button>
           </div>
 
           {error && (
-            <div className="mt-4 bg-red-500/10 border border-red-500/20 rounded-xl p-4 flex items-start gap-3">
-              <AlertCircle className="text-red-500 flex-shrink-0 mt-0.5" size={20} />
-              <p className="text-red-400 text-sm">{error}</p>
+            <div className={`mt-4 p-4 rounded-lg ${error.includes('✓') ? 'bg-green-500/20 text-green-300' : 'bg-red-500/20 text-red-300'}`}>
+              {error}
             </div>
           )}
         </div>
 
-        {/* RESULTS SECTION */}
-        {result && (
-          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            
-            {/* SCORE CARD */}
-            <div className={`bg-gradient-to-br ${getScoreBg(result.score)} border rounded-2xl p-8`}>
-              <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-                <div>
-                  <h2 className="text-2xl font-bold text-white mb-2">{result.title}</h2>
-                  <div className="flex items-center gap-4 text-sm text-slate-400">
-                    <span>👁️ {result.view_count.toLocaleString()} views</span>
-                    <span>👍 {result.like_count.toLocaleString()} likes</span>
-                    <span>📊 {result.engagement_rate}% engagement</span>
-                  </div>
-                </div>
-                <div className="text-center">
-                  <div className={`text-7xl font-black ${getScoreColor(result.score)}`}>
-                    {result.score}
-                  </div>
-                  <div className="text-sm text-slate-400 uppercase tracking-widest mt-2">
-                    Grade: {result.grade}
-                  </div>
+        {/* ✅ FIX: Proper null check before rendering */}
+        {videoInfo && (
+          <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 shadow-2xl">
+            <div className="grid md:grid-cols-3 gap-6 mb-6">
+              <div className="md:col-span-1">
+                {videoInfo.thumbnail && (
+                  <img src={videoInfo.thumbnail} alt={videoInfo.title || 'Video'} className="w-full rounded-lg shadow-lg" />
+                )}
+              </div>
+
+              <div className="md:col-span-2 space-y-3">
+                <h2 className="text-2xl font-bold text-white">{videoInfo.title || 'Untitled'}</h2>
+                
+                <div className="grid grid-cols-2 gap-4 text-sm text-gray-300">
+                  {videoInfo.uploader && <div><b>Uploader:</b> {videoInfo.uploader}</div>}
+                  {videoInfo.duration && <div><b>Duration:</b> {videoInfo.duration}</div>}
+                  {videoInfo.view_count && <div><b>Views:</b> {videoInfo.view_count.toLocaleString()}</div>}
+                  {/* ✅ FIX: Safe array length check */}
+                  <div><b>Formats:</b> {videoInfo.formats?.length ?? 0}</div>
                 </div>
               </div>
             </div>
 
-            {/* METADATA */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {[
-                { label: "Tags", value: result.metadata.tag_count, icon: "🏷️" },
-                { label: "Description", value: `${result.metadata.description_length} chars`, icon: "📝" },
-                { label: "Hashtags", value: result.metadata.hashtag_count, icon: "#️⃣" },
-                { label: "Timestamps", value: result.metadata.timestamp_count, icon: "⏱️" },
-              ].map((item) => (
-                <div key={item.label} className="bg-slate-900/50 border border-white/10 rounded-xl p-4">
-                  <div className="text-2xl mb-1">{item.icon}</div>
-                  <div className="text-slate-400 text-xs uppercase">{item.label}</div>
-                  <div className="text-white font-bold">{item.value}</div>
-                </div>
-              ))}
-            </div>
-
-            {/* ISSUES */}
-            {result.issues.length > 0 && (
-              <div className="bg-slate-900/50 border border-red-500/20 rounded-2xl p-6">
-                <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                  <AlertCircle className="text-red-500" size={24} />
-                  Issues to Fix ({result.issues.length})
-                </h3>
-                <div className="space-y-3">
-                  {result.issues.map((issue, idx) => (
-                    <div key={idx} className="bg-slate-800/50 rounded-xl p-4 border-l-4 border-red-500">
-                      <div className="flex items-start justify-between gap-4">
-                        <p className="text-slate-300 text-sm flex-1">{issue.message}</p>
-                        <span className="text-xs text-red-400 font-mono bg-red-500/10 px-2 py-1 rounded">
-                          {issue.impact} pts
-                        </span>
-                      </div>
-                    </div>
+            {/* ✅ FIX: Proper array check before mapping */}
+            {videoInfo.formats && videoInfo.formats.length > 0 && (
+              <div className="space-y-4">
+                <label className="block text-white font-semibold mb-2">Select Quality:</label>
+                <select
+                  value={selectedFormat}
+                  onChange={(e) => setSelectedFormat(e.target.value)}
+                  className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white focus:ring-2 focus:ring-purple-500"
+                  disabled={downloading}
+                >
+                  {videoInfo.formats.map((format) => (
+                    <option key={format.format_id} value={format.format_id} className="bg-gray-800">
+                      {format.quality} - {format.ext.toUpperCase()} 
+                      {format.filesize ? ` (${formatFileSize(format.filesize)})` : ''}
+                      {format.acodec && format.acodec !== 'none' ? ' 🔊' : ''}
+                    </option>
                   ))}
-                </div>
+                </select>
+
+                <button
+                  onClick={handleDownload}
+                  disabled={downloading || !selectedFormat}
+                  className="w-full bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 disabled:from-gray-600 disabled:to-gray-700 text-white font-semibold py-4 px-6 rounded-xl transition-all transform hover:scale-105"
+                >
+                  {downloading ? '⏳ Downloading...' : '⬇️ Download Video'}
+                </button>
               </div>
             )}
-
-            {/* STRENGTHS */}
-            {result.strengths.length > 0 && (
-              <div className="bg-slate-900/50 border border-green-500/20 rounded-2xl p-6">
-                <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                  <CheckCircle2 className="text-green-500" size={24} />
-                  Strengths ({result.strengths.length})
-                </h3>
-                <div className="grid md:grid-cols-2 gap-3">
-                  {result.strengths.map((strength, idx) => (
-                    <div key={idx} className="bg-slate-800/50 rounded-xl p-3 border-l-4 border-green-500">
-                      <p className="text-slate-300 text-sm">{strength.message}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* SUGGESTIONS */}
-            {result.suggestions.length > 0 && (
-              <div className="bg-gradient-to-r from-blue-600/10 to-purple-600/10 border border-blue-500/20 rounded-2xl p-6">
-                <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                  <TrendingUp className="text-blue-400" size={24} />
-                  Recommendations
-                </h3>
-                <div className="space-y-2">
-                  {result.suggestions.map((suggestion, idx) => (
-                    <p key={idx} className="text-slate-300 text-sm">{suggestion}</p>
-                  ))}
-                </div>
-              </div>
-            )}
-
           </div>
         )}
 
-        {/* DONATION SECTION - Shows after analysis or standalone */}
-        <DonationSection />
-
+        <div className="mt-8 text-center text-gray-400 text-sm">
+          <p>Respect copyright laws and platform terms of service</p>
+        </div>
       </div>
     </div>
   );
