@@ -7,8 +7,8 @@ export default function Navbar() {
   const pathname = usePathname();
 
   const navItems = [
-    { name: "5-in-1 Downloader", path: "/", icon: <Download size={18} /> },
-    { name: "Video Analyzer", path: "/analyzer", icon: <BarChart3 size={18} /> },
+    { name: "Video Analyzer", path: "/", icon: <BarChart3 size={18} /> },  // NEW HOMEPAGE
+    { name: "5-in-1 Downloader", path: "/downloader", icon: <Download size={18} /> },  // MOVED
     { name: "Transcriber", path: "/transcriber", icon: <Languages size={18} /> },
   ];
 

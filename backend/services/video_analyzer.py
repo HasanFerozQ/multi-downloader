@@ -1,475 +1,374 @@
 import yt_dlp
 import re
-from typing import Dict, Any
+from typing import Dict, List, Tuple, Any
 from collections import Counter
 
-# Power words for title analysis
-POWER_WORDS = [
-    "amazing", "secret", "proven", "ultimate", "complete", "essential",
-    "perfect", "best", "worst", "never", "always", "easy", "simple",
-    "quick", "fast", "shocking", "incredible", "mind-blowing", "insane"
-]
 
-EMOTIONAL_WORDS = {
-    "fear": ["scary", "terrifying", "dangerous", "warning", "avoid", "mistake", "disaster"],
-    "excitement": ["amazing", "incredible", "awesome", "epic", "unbelievable", "insane"],
-    "curiosity": ["secret", "hidden", "revealed", "truth", "exposed", "mystery"],
-    "urgency": ["now", "today", "immediately", "hurry", "limited", "ending"],
-    "authority": ["proven", "expert", "professional", "official", "certified", "guaranteed"]
-}
+def check_tag_title_match(title: str, tags: List[str]) -> Tuple[int, str]:
+    """
+    Check if main tags appear in the video title
+    Impact: -3 points if no match
+    """
+    if not tags:
+        return -2, "No tags found"
+    
+    title_words = set(word.lower() for word in title.split() if len(word) > 3)
+    matched_tags = [tag for tag in tags if tag.lower() in title_words or any(word in title.lower() for word in tag.lower().split())]
+    
+    if not matched_tags:
+        return -3, "❌ None of your tags appear in title. Try to match your main topic tags with title keywords."
+    elif len(matched_tags) < 2:
+        return -1, f"⚠️ Only {len(matched_tags)} tag matches title. Add more tag-title alignment."
+    else:
+        return 0, f"✅ {len(matched_tags)} tags match title keywords"
 
-FILLER_WORDS = ["um", "uh", "like", "you know", "actually", "basically", "literally"]
+
+def validate_hashtags(description: str) -> Tuple[int, str]:
+    """
+    Validate hashtag count (YouTube ignores all if >15)
+    Impact: -5 points if >15, -2 if 0
+    """
+    hashtags = re.findall(r'#\w+', description)
+    count = len(hashtags)
+    
+    if count > 15:
+        return -5, f"❌ Too many hashtags ({count} found). Using more than 15 causes YouTube to ignore all hashtags."
+    elif count == 0:
+        return -2, "⚠️ No hashtags found. Add 3-5 hashtags for better discoverability."
+    elif count < 3:
+        return -1, f"⚠️ Only {count} hashtags. 3-5 is optimal for YouTube SEO."
+    elif count >= 3 and count <= 15:
+        return 0, f"✅ {count} hashtags (optimal range: 3-15)"
+    else:
+        return 0, f"✅ Hashtag count is good ({count})"
 
 
-def analyze_title(title: str) -> Dict[str, Any]:
-    """Analyze video title for click potential"""
+def analyze_keyword_density(title: str, description: str) -> Tuple[int, str]:
+    """
+    Check if title keywords appear in description
+    Impact: -3 points if very low density
+    """
+    if not description or len(description) < 50:
+        return -2, "⚠️ Description too short to analyze keyword density"
+    
+    # Extract important keywords from title (first 5-7 words, excluding stop words)
+    stop_words = {'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'from', 'is', 'are', 'was', 'were'}
+    title_keywords = [word.lower() for word in title.split() if word.lower() not in stop_words and len(word) > 3][:7]
+    
+    if not title_keywords:
+        return -1, "⚠️ Cannot extract keywords from title"
+    
+    desc_lower = description.lower()
+    density_score = sum(desc_lower.count(kw) for kw in title_keywords)
+    
+    if density_score < 3:
+        return -3, f"❌ Title keywords barely appear in description (only {density_score} mentions). Repeat main keywords 2-3 times."
+    elif density_score < 6:
+        return -1, f"⚠️ Low keyword density ({density_score} mentions). Aim for 6-10 keyword mentions."
+    else:
+        return 0, f"✅ Good keyword density ({density_score} keyword mentions in description)"
+
+
+def score_description_length(description: str) -> Tuple[int, str]:
+    """
+    Score description based on optimal length
+    Impact: -3 points if <100 chars
+    """
+    length = len(description) if description else 0
+    
+    if length < 100:
+        return -3, f"❌ Description too short ({length} chars). YouTube recommends 250+ characters."
+    elif length < 250:
+        return -2, f"⚠️ Description is short ({length} chars). 500+ is better for SEO."
+    elif length < 500:
+        return -1, f"⚠️ Description okay ({length} chars). 1000+ is ideal for maximum SEO."
+    elif length >= 1000:
+        return 0, f"✅ Excellent description length ({length} chars)"
+    else:
+        return 0, f"✅ Good description length ({length} chars)"
+
+
+def detect_cta(description: str) -> Tuple[int, str]:
+    """
+    Detect call-to-action phrases that boost engagement
+    Impact: -2 points if none found
+    """
+    if not description:
+        return -2, "❌ No description to analyze for CTAs"
+    
+    cta_keywords = [
+        'subscribe', 'like', 'comment', 'share', 'bell', 'notification',
+        'watch next', 'click here', 'check out', 'follow', 'join',
+        'download', 'get', 'learn more', 'visit', 'support'
+    ]
+    
+    desc_lower = description.lower()
+    found_ctas = [kw for kw in cta_keywords if kw in desc_lower]
+    
+    if not found_ctas:
+        return -2, "❌ No call-to-action found. Add phrases like 'Subscribe', 'Like', 'Comment' to boost engagement."
+    elif len(found_ctas) < 2:
+        return -1, f"⚠️ Only 1 CTA found: '{found_ctas[0]}'. Add more CTAs for better engagement."
+    else:
+        return 0, f"✅ {len(found_ctas)} CTAs detected ({', '.join(found_ctas[:3])}...)"
+
+
+def check_chapters(description: str) -> Tuple[int, str]:
+    """
+    Check for chapter markers/timestamps
+    Impact: -2 points if no chapters
+    """
+    if not description:
+        return -2, "⚠️ No description to check for chapters"
+    
+    # Look for timestamp patterns: 0:00, 1:23, 10:45, 1:23:45
+    timestamps = re.findall(r'\b\d{1,2}:\d{2}(?::\d{2})?\b', description)
+    
+    if len(timestamps) >= 3:
+        return 0, f"✅ {len(timestamps)} timestamps found (chapters enabled - great for retention!)"
+    elif len(timestamps) > 0:
+        return -1, f"⚠️ Only {len(timestamps)} timestamps. Add 3+ timestamps to enable YouTube chapters."
+    else:
+        return -2, "❌ No chapter markers found. Add timestamps (0:00, 1:23, etc.) to improve watch time."
+
+
+def score_title_optimization(title: str) -> Tuple[int, str]:
+    """
+    Analyze title for SEO best practices
+    Impact: -3 points total for multiple issues
+    """
+    if not title:
+        return -3, "❌ No title to analyze"
+    
     length = len(title)
-    words = title.lower().split()
+    issues = []
+    score = 0
+    
+    # Length check (optimal: 50-60 chars)
+    if length < 30:
+        issues.append("Title too short (under 30 chars)")
+        score -= 2
+    elif length > 70:
+        issues.append("Title may be truncated in search results (over 70 chars)")
+        score -= 1
+    
+    # Check for numbers/stats (proven CTR booster)
+    if not re.search(r'\d+', title):
+        issues.append("No numbers/stats (e.g., '5 Tips', '2024')")
+        score -= 1
     
     # Check for power words
-    power_word_count = sum(1 for word in words if word in POWER_WORDS)
+    power_words = ['best', 'top', 'ultimate', 'complete', 'guide', 'how to', 'tutorial', 'review', 'vs', 'new', 'secret', 'proven', 'easy', 'fast', 'simple']
+    if not any(word in title.lower() for word in power_words):
+        issues.append("No power words (Best, Ultimate, Complete, etc.)")
+        score -= 1
     
-    # Check for numbers
-    has_numbers = bool(re.search(r'\d+', title))
-    
-    # Check for question
-    is_question = title.endswith('?')
-    
-    # Sentiment analysis
-    sentiment = "Neutral"
-    for emotion, emotion_words in EMOTIONAL_WORDS.items():
-        if any(word in title.lower() for word in emotion_words):
-            sentiment = emotion.capitalize()
-            break
-    
-    # Calculate title score (0-10)
-    score = 5.0  # Base score
-    
-    # Length optimization (45-65 chars ideal)
-    if 45 <= length <= 65:
-        score += 2
-    elif 40 <= length < 45 or 65 < length <= 70:
-        score += 1
-    
-    # Power words bonus
-    score += min(power_word_count * 0.5, 2)
-    
-    # Numbers bonus
-    if has_numbers:
-        score += 0.5
-    
-    # Question bonus
-    if is_question:
-        score += 0.5
-    
-    score = min(score, 10)
-    
-    # CTR Prediction
-    if score >= 8:
-        ctr_prediction = "High"
-        ctr_reason = "Strong title with good length, power words, and engagement hooks"
-    elif score >= 6:
-        ctr_prediction = "Medium"
-        ctr_reason = "Decent title but could be optimized further"
+    if issues:
+        return score, f"⚠️ Title issues: {', '.join(issues)}"
     else:
-        ctr_prediction = "Low"
-        ctr_reason = "Title needs improvement - add power words, optimize length"
-    
-    return {
-        "score": round(score, 1),
-        "length": length,
-        "power_words": power_word_count,
-        "has_numbers": has_numbers,
-        "is_question": is_question,
-        "sentiment": sentiment,
-        "ctr_prediction": ctr_prediction,
-        "ctr_reason": ctr_reason
-    }
+        return 0, f"✅ Title well-optimized ({length} chars)"
 
 
-def analyze_description(description: str) -> Dict[str, Any]:
-    """Analyze video description for SEO"""
-    if not description:
-        return {
-            "score": 0,
-            "length": 0,
-            "keyword_count": 0,
-            "has_cta": False,
-            "hashtag_count": 0
-        }
-    
-    length = len(description)
-    hashtags = re.findall(r'#\w+', description)
-    
-    # Check for CTA (Call to Action)
-    cta_keywords = ["subscribe", "like", "comment", "share", "follow", "click", "watch"]
-    has_cta = any(keyword in description.lower() for keyword in cta_keywords)
-    
-    # Calculate score
-    score = 0
-    if length > 200:
-        score += 3
-    if length > 500:
-        score += 2
-    if len(hashtags) > 0:
-        score += 2
-    if has_cta:
-        score += 3
-    
-    return {
-        "score": min(score, 10),
-        "length": length,
-        "hashtag_count": len(hashtags),
-        "has_cta": has_cta
-    }
-
-
-def analyze_tags(tags: list) -> Dict[str, Any]:
-    """Analyze video tags"""
+def analyze_tag_quality(tags: List[str]) -> Tuple[int, str]:
+    """
+    Analyze tag diversity and quality
+    Impact: -3 points if no tags, -2 if poor diversity
+    """
     if not tags:
-        return {"score": 0, "count": 0, "quality": "Poor"}
+        return -3, "❌ No tags found. Add 10-15 relevant tags."
     
     tag_count = len(tags)
     
-    # Check for long-tail tags (3+ words)
-    long_tail = sum(1 for tag in tags if len(tag.split()) >= 3)
+    # Check tag length diversity (need short, medium, and long-tail tags)
+    tag_lengths = [len(tag.split()) for tag in tags]
     
-    score = min(tag_count * 0.5, 5)  # Base on count
-    score += min(long_tail * 0.5, 3)  # Bonus for long-tail
-    score = min(score, 10)
+    has_short = any(l == 1 for l in tag_lengths)  # Single word tags
+    has_medium = any(1 < l <= 3 for l in tag_lengths)  # 2-3 word phrases
+    has_long = any(l > 3 for l in tag_lengths)  # Long-tail keywords
     
-    if score >= 7:
-        quality = "Excellent"
-    elif score >= 5:
-        quality = "Good"
+    # Check for overly long tags (YouTube ignores tags >30 chars)
+    too_long = [tag for tag in tags if len(tag) > 30]
+    
+    if too_long:
+        return -1, f"⚠️ {len(too_long)} tags are too long (over 30 chars). YouTube may ignore them."
+    
+    if tag_count < 5:
+        return -2, f"⚠️ Only {tag_count} tags. Add at least 10-15 for better SEO."
+    elif not (has_short and has_medium):
+        return -2, f"⚠️ Tags lack diversity. Include: short (1 word), medium (2-3 words), and long-tail (4+ words) tags."
+    elif tag_count > 15:
+        return 0, f"✅ {tag_count} tags with good diversity"
     else:
-        quality = "Needs Improvement"
-    
-    return {
-        "score": round(score, 1),
-        "count": tag_count,
-        "long_tail_count": long_tail,
-        "quality": quality
-    }
+        return 0, f"✅ {tag_count} tags (good diversity detected)"
 
 
-def analyze_seo(title: str, description: str, tags: list) -> Dict[str, Any]:
-    """Overall SEO analysis"""
-    # Extract potential main keyword (first 3 words usually)
-    title_words = title.lower().split()[:3]
-    main_keyword = " ".join(title_words)
+def calculate_engagement_score(view_count: int, like_count: int, comment_count: int = 0) -> Tuple[int, str]:
+    """
+    Calculate engagement rate and score it
+    Impact: -3 points if very low engagement
+    """
+    if view_count == 0:
+        return -2, "⚠️ No views yet to calculate engagement"
     
-    # Check keyword presence
-    keyword_in_title = True  # Main keyword is from title
-    keyword_in_desc = main_keyword in description.lower() if description else False
-    keyword_in_tags = any(main_keyword in tag.lower() for tag in tags) if tags else False
+    engagement_rate = (like_count / view_count * 100) if view_count > 0 else 0
     
-    keyword_score = 3  # Always in title
-    if keyword_in_desc:
-        keyword_score += 3
-    if keyword_in_tags:
-        keyword_score += 2
-    
-    # Keyword position in title
-    if title_words[0] in ["how", "what", "why", "when", "best", "top"]:
-        keyword_position = "Beginning (Optimal)"
+    if engagement_rate < 1:
+        return -3, f"❌ Very low engagement ({engagement_rate:.2f}%). Encourage likes and comments."
+    elif engagement_rate < 2:
+        return -2, f"⚠️ Low engagement ({engagement_rate:.2f}%). Average is 3-5%."
+    elif engagement_rate < 3:
+        return -1, f"⚠️ Below average engagement ({engagement_rate:.2f}%). Aim for 3%+."
+    elif engagement_rate >= 5:
+        return 0, f"✅ Excellent engagement ({engagement_rate:.2f}%)"
     else:
-        keyword_position = "Not Optimized"
-    
-    # Calculate overall SEO score
-    title_analysis = analyze_title(title)
-    desc_analysis = analyze_description(description)
-    tag_analysis = analyze_tags(tags)
-    
-    seo_overall = (
-        title_analysis["score"] * 0.4 +
-        desc_analysis["score"] * 0.3 +
-        tag_analysis["score"] * 0.3
-    ) * 10
-    
-    return {
-        "keyword_score": min(keyword_score, 10),
-        "main_keyword": main_keyword,
-        "keyword_position": keyword_position,
-        "description_score": desc_analysis["score"],
-        "description_length": desc_analysis["length"],
-        "tag_score": tag_analysis["score"],
-        "tag_count": tag_analysis["count"],
-        "seo_overall": round(seo_overall, 1)
-    }
-
-
-def analyze_retention(duration: int, description: str) -> Dict[str, Any]:
-    """Analyze retention potential"""
-    # Pacing score based on duration
-    if duration < 180:  # < 3 mins
-        pacing_score = 9
-    elif duration < 600:  # < 10 mins
-        pacing_score = 8
-    elif duration < 1200:  # < 20 mins
-        pacing_score = 6
-    else:
-        pacing_score = 4
-    
-    # Engagement density (based on description for now)
-    questions_asked = description.count('?') if description else 0
-    engagement_density = min(questions_asked * 2, 10)
-    
-    # Content structure score (simplified)
-    structure_score = 7  # Default moderate score
-    
-    # Retention risks
-    risks = []
-    if duration > 1200:
-        risks.append("Very long video - may lose viewers")
-    if duration > 600:
-        risks.append("Consider adding chapters for better navigation")
-    if engagement_density < 3:
-        risks.append("Low engagement signals - add more questions/interactions")
-    if not risks:
-        risks.append("No major retention risks detected")
-    
-    return {
-        "pacing_score": pacing_score,
-        "engagement_density": engagement_density,
-        "questions_asked": questions_asked,
-        "structure_score": structure_score,
-        "retention_risks": risks
-    }
-
-
-def analyze_virality(title: str, description: str, views: int, duration: int) -> Dict[str, Any]:
-    """Analyze viral potential"""
-    # Emotional triggers
-    emotional_triggers = {}
-    for emotion, words in EMOTIONAL_WORDS.items():
-        text = (title + " " + (description or "")).lower()
-        trigger_count = sum(1 for word in words if word in text)
-        emotional_triggers[emotion] = min(trigger_count * 2, 10)
-    
-    # Shareability score
-    shareability_factors = 0
-    
-    # Strong opinion indicators
-    opinion_words = ["best", "worst", "never", "always", "everyone", "nobody"]
-    if any(word in title.lower() for word in opinion_words):
-        shareability_factors += 3
-    
-    # Data/Numbers
-    if re.search(r'\d+', title):
-        shareability_factors += 2
-    
-    # Story indicators
-    story_words = ["story", "journey", "experience", "happened"]
-    if any(word in title.lower() for word in story_words):
-        shareability_factors += 2
-    
-    # Relatable struggle
-    struggle_words = ["struggle", "fail", "mistake", "problem", "challenge"]
-    if any(word in title.lower() for word in struggle_words):
-        shareability_factors += 3
-    
-    shareability_score = min(shareability_factors, 10)
-    
-    # Trend alignment (simplified - check for trending keywords)
-    trending_keywords = ["ai", "2024", "2025", "new", "latest", "trend", "viral"]
-    trend_score = sum(2 for keyword in trending_keywords if keyword in title.lower())
-    trend_score = min(trend_score, 10)
-    
-    trending_topics = ", ".join([kw for kw in trending_keywords if kw in title.lower()]) or None
-    
-    # Overall viral probability
-    avg_emotional = sum(emotional_triggers.values()) / len(emotional_triggers)
-    viral_score = (avg_emotional + shareability_score + trend_score) / 3
-    
-    if viral_score >= 7:
-        viral_probability = "High"
-    elif viral_score >= 5:
-        viral_probability = "Medium"
-    else:
-        viral_probability = "Low"
-    
-    return {
-        "emotional_triggers": emotional_triggers,
-        "shareability_score": round(shareability_score, 1),
-        "trend_score": round(trend_score, 1),
-        "trending_topics": trending_topics,
-        "viral_probability": viral_probability
-    }
-
-
-def generate_recommendations(analysis_data: Dict[str, Any]) -> list:
-    """Generate improvement recommendations"""
-    recommendations = []
-    
-    metrics = analysis_data["metrics"]
-    
-    # Title recommendations
-    if metrics["title_score"] < 7:
-        recommendations.append({
-            "priority": "high",
-            "title": "Optimize Your Title",
-            "suggestion": f"Your title is {metrics['title_length']} characters. Aim for 45-65 characters and include power words."
-        })
-    
-    # SEO recommendations
-    if metrics["seo_overall"] < 60:
-        recommendations.append({
-            "priority": "high",
-            "title": "Improve SEO",
-            "suggestion": "Add more relevant tags and optimize your description with keywords and hashtags."
-        })
-    
-    # Keyword position
-    if metrics["keyword_position"] != "Beginning (Optimal)":
-        recommendations.append({
-            "priority": "medium",
-            "title": "Keyword Placement",
-            "suggestion": "Move your main keyword to the beginning of the title for better SEO."
-        })
-    
-    # Description
-    if metrics["description_length"] < 200:
-        recommendations.append({
-            "priority": "medium",
-            "title": "Expand Description",
-            "suggestion": "Write a longer description (500+ characters) with keywords and relevant links."
-        })
-    
-    # Engagement
-    if metrics["engagement_density"] < 5:
-        recommendations.append({
-            "priority": "medium",
-            "title": "Increase Engagement",
-            "suggestion": "Add more questions and calls-to-action to boost viewer interaction."
-        })
-    
-    # Hook strength
-    if metrics["hook_strength"] < 7:
-        recommendations.append({
-            "priority": "high",
-            "title": "Strengthen Your Hook",
-            "suggestion": "Create a stronger opening in the first 15 seconds to grab attention immediately."
-        })
-    
-    # Viral potential
-    if metrics["trend_score"] < 5:
-        recommendations.append({
-            "priority": "low",
-            "title": "Trend Alignment",
-            "suggestion": "Consider incorporating trending topics or keywords to increase discoverability."
-        })
-    
-    # Add positive feedback if doing well
-    if analysis_data["overall_score"] >= 80:
-        recommendations.append({
-            "priority": "low",
-            "title": "Great Job!",
-            "suggestion": "Your video is well-optimized. Keep up the excellent work!"
-        })
-    
-    return recommendations
+        return 0, f"✅ Average engagement ({engagement_rate:.2f}%)"
 
 
 def analyze_video_comprehensive(url: str) -> Dict[str, Any]:
-    """Main function to analyze video from any platform"""
-    ydl_opts = {
-        'quiet': True,
-        'no_warnings': True,
-        'extract_flat': False,
-    }
-    
+    """
+    Main analyzer function - runs all checks and returns comprehensive score
+    Returns score between 0-100
+    """
+    # Import here to avoid circular imports
     try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=False)
-            
-            if 'entries' in info:
-                info = info['entries'][0]
-            
-            # Extract data
-            title = info.get('title', 'Untitled')
-            description = info.get('description', '')
-            duration = info.get('duration', 0)
-            views = info.get('view_count', 0)
-            uploader = info.get('uploader', 'Unknown')
-            thumbnail = info.get('thumbnail', '')
-            tags = info.get('tags', [])
-            
-            # Detect platform
-            if 'youtube' in url:
-                platform = 'YouTube'
-            elif 'tiktok' in url:
-                platform = 'TikTok'
-            elif 'instagram' in url:
-                platform = 'Instagram'
-            elif 'facebook' in url:
-                platform = 'Facebook'
-            elif 'twitter' in url or 'x.com' in url:
-                platform = 'X (Twitter)'
-            else:
-                platform = 'Unknown'
-            
-            # Run analyses
-            title_analysis = analyze_title(title)
-            seo_analysis = analyze_seo(title, description, tags)
-            retention_analysis = analyze_retention(duration, description)
-            virality_analysis = analyze_virality(title, description, views, duration)
-            
-            # Calculate component scores
-            click_potential = title_analysis["score"]
-            seo_score = seo_analysis["seo_overall"] / 10
-            retention_score = (
-                retention_analysis["pacing_score"] * 0.4 +
-                retention_analysis["engagement_density"] * 0.3 +
-                retention_analysis["structure_score"] * 0.3
-            )
-            
-            # Hook strength (simplified - based on title for now)
-            hook_strength = title_analysis["score"]
-            
-            # Overall score
-            overall_score = (
-                click_potential * 0.3 +
-                seo_score * 0.25 +
-                retention_score * 0.25 +
-                (10 if virality_analysis["viral_probability"] == "High" else 
-                 7 if virality_analysis["viral_probability"] == "Medium" else 4) * 0.2
-            ) * 10
-            
-            # Combine all metrics
-            metrics = {
-                "title_score": title_analysis["score"],
-                "title_length": title_analysis["length"],
-                "ctr_prediction": title_analysis["ctr_prediction"],
-                "ctr_reason": title_analysis["ctr_reason"],
-                "title_sentiment": title_analysis["sentiment"],
-                "hook_strength": hook_strength,
-                **seo_analysis,
-                **retention_analysis,
-                **virality_analysis
-            }
-            
-            result = {
-                "overall_score": round(overall_score, 1),
-                "click_potential": round(click_potential, 1),
-                "seo_score": round(seo_score, 1),
-                "retention_score": round(retention_score, 1),
-                "viral_probability": virality_analysis["viral_probability"],
-                "title": title,
-                "description": description[:200] + "..." if len(description) > 200 else description,
-                "duration": duration,
-                "views": views,
-                "uploader": uploader,
-                "thumbnail": thumbnail,
-                "platform": platform,
-                "metrics": metrics,
-                "recommendations": []
-            }
-            
-            # Generate recommendations
-            result["recommendations"] = generate_recommendations(result)
-            
-            return result
-            
-    except Exception as e:
-        return {"error": f"Failed to analyze video: {str(e)}"}
+        from .scraper import get_video_info
+    except ImportError:
+        # Fallback for different import paths
+        try:
+            from scraper import get_video_info
+        except ImportError:
+            return {"error": "Cannot import video info scraper"}
+    
+    # Fetch video metadata
+    video_data = get_video_info(url)
+    
+    if "error" in video_data:
+        return video_data
+    
+    # Extract metadata
+    title = video_data.get('title', '')
+    description = video_data.get('description', '')
+    tags = video_data.get('tags', [])
+    view_count = video_data.get('view_count', 0)
+    like_count = video_data.get('like_count', 0)
+    comment_count = video_data.get('comment_count', 0)
+    
+    # Initialize scoring
+    total_score = 100
+    issues = []
+    strengths = []
+    
+    # Run all checks
+    checks = [
+        ("Tag-Title Match", check_tag_title_match(title, tags)),
+        ("Hashtag Validation", validate_hashtags(description)),
+        ("Keyword Density", analyze_keyword_density(title, description)),
+        ("Description Length", score_description_length(description)),
+        ("Call-to-Action", detect_cta(description)),
+        ("Chapter Markers", check_chapters(description)),
+        ("Title Optimization", score_title_optimization(title)),
+        ("Tag Quality", analyze_tag_quality(tags)),
+        ("Engagement Rate", calculate_engagement_score(view_count, like_count, comment_count))
+    ]
+    
+    # Aggregate scores
+    for check_name, (score_delta, message) in checks:
+        total_score += score_delta
+        
+        if score_delta < 0:
+            issues.append({
+                "category": check_name,
+                "impact": score_delta,
+                "message": message
+            })
+        else:
+            strengths.append({
+                "category": check_name,
+                "message": message
+            })
+    
+    # Clamp score between 0-100
+    final_score = max(0, min(100, total_score))
+    
+    # Calculate engagement rate
+    engagement_rate = (like_count / view_count * 100) if view_count > 0 else 0
+    
+    # Generate improvement suggestions
+    suggestions = []
+    if final_score < 70:
+        suggestions.append("🎯 Priority: Fix the issues marked with ❌ first - they have the biggest impact")
+    if final_score < 85:
+        suggestions.append("⚡ Quick wins: Address items marked with ⚠️ for easy score boosts")
+    if final_score >= 85:
+        suggestions.append("🎉 Great job! Your video is well-optimized. Minor tweaks can get you to 90+")
+    
+    return {
+        "score": final_score,
+        "grade": get_letter_grade(final_score),
+        "title": title,
+        "view_count": view_count,
+        "like_count": like_count,
+        "comment_count": comment_count,
+        "engagement_rate": round(engagement_rate, 2),
+        "issues": issues,
+        "strengths": strengths,
+        "suggestions": suggestions,
+        "metadata": {
+            "tag_count": len(tags),
+            "description_length": len(description),
+            "hashtag_count": len(re.findall(r'#\w+', description)),
+            "timestamp_count": len(re.findall(r'\b\d{1,2}:\d{2}(?::\d{2})?\b', description))
+        }
+    }
+
+
+def get_letter_grade(score: int) -> str:
+    """Convert numeric score to letter grade"""
+    if score >= 90:
+        return "A+"
+    elif score >= 85:
+        return "A"
+    elif score >= 80:
+        return "B+"
+    elif score >= 75:
+        return "B"
+    elif score >= 70:
+        return "C+"
+    elif score >= 65:
+        return "C"
+    elif score >= 60:
+        return "D"
+    else:
+        return "F"
+
+
+# Example usage and testing
+if __name__ == "__main__":
+    # Test with a YouTube URL
+    test_url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    result = analyze_video_comprehensive(test_url)
+    
+    print(f"\n{'='*60}")
+    print(f"VIDEO SEO ANALYSIS - Score: {result['score']}/100 (Grade: {result['grade']})")
+    print(f"{'='*60}\n")
+    
+    print(f"📊 Engagement: {result['engagement_rate']}%")
+    print(f"👁️  Views: {result['view_count']:,}")
+    print(f"👍 Likes: {result['like_count']:,}\n")
+    
+    if result['issues']:
+        print(f"⚠️  ISSUES TO FIX ({len(result['issues'])}):")
+        for issue in result['issues']:
+            print(f"   {issue['message']} (Impact: {issue['impact']} points)")
+        print()
+    
+    if result['strengths']:
+        print(f"✅ STRENGTHS ({len(result['strengths'])}):")
+        for strength in result['strengths']:
+            print(f"   {strength['message']}")
+        print()
+    
+    if result['suggestions']:
+        print("💡 SUGGESTIONS:")
+        for suggestion in result['suggestions']:
+            print(f"   {suggestion}")
