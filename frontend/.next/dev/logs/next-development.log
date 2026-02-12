@@ -1,3 +1,4 @@
-[00:00:05.568] Server  LOG     ✓ Ready in 3.8s
-[00:05:53.358] Server  LOG     ○ Compiling / ...
-[00:05:56.043] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:00:01.784] Server  LOG     ✓ Ready in 1306ms
+[00:05:16.111] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:05:56.848] Browser LOG     WebSocket closed
+[00:06:21.647] Browser LOG     WebSocket closed

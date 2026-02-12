@@ -6,7 +6,6 @@ import random
 
 logger = logging.getLogger(__name__)
 
-# User agent rotation for bot detection mitigation
 USER_AGENTS = [
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -32,7 +31,6 @@ def get_platform_cookies(url: str) -> Optional[str]:
                 logger.info(f"Using cookies for {platform}: {cookie_file}")
                 return cookie_path
     
-    # Fallback to general cookies
     general_cookies = os.path.join(os.getcwd(), "cookies.txt")
     if os.path.exists(general_cookies):
         logger.info("Using general cookies.txt")
@@ -43,16 +41,7 @@ def get_platform_cookies(url: str) -> Optional[str]:
 
 
 def get_video_info(url: str) -> Dict[str, Any]:
-    """
-    Extract video information and available formats
-    
-    Improvements:
-    - Better error handling with specific error messages
-    - Cookie support per platform
-    - User agent rotation
-    - Better format filtering
-    - Handles various edge cases
-    """
+    """Extract video information and available formats"""
     
     cookie_path = get_platform_cookies(url)
     
@@ -62,17 +51,15 @@ def get_video_info(url: str) -> Dict[str, Any]:
         'user_agent': random.choice(USER_AGENTS),
         'extract_flat': False,
         'no_color': True,
+        'retries': 3,
+        'fragment_retries': 3,
     }
     
-    # Add cookies if available
     if cookie_path:
         ydl_opts['cookiefile'] = cookie_path
     
-    # Platform-specific options
     if "tiktok.com" in url:
-        ydl_opts['http_headers'] = {
-            'Referer': 'https://www.tiktok.com/',
-        }
+        ydl_opts['http_headers'] = {'Referer': 'https://www.tiktok.com/'}
     
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -91,7 +78,7 @@ def get_video_info(url: str) -> Dict[str, Any]:
             
             formats = []
             seen_heights = set()
-            seen_combinations = set()  # To avoid duplicate quality+codec combos
+            seen_combinations = set()
             
             for f in info.get('formats', []):
                 height = f.get('height')
@@ -99,25 +86,20 @@ def get_video_info(url: str) -> Dict[str, Any]:
                 acodec = f.get('acodec', 'none')
                 format_id = f.get("format_id")
                 
-                # Must have a real video stream with a known height
                 if not height or vcodec == 'none' or not format_id:
                     continue
                 
-                # Skip very low quality (below 144p)
                 if height < 144:
                     continue
                 
-                # Create unique combo identifier
                 combo_key = f"{height}_{vcodec[:4]}"
                 
-                # Skip duplicate resolutions (keep first/best one)
                 if height in seen_heights or combo_key in seen_combinations:
                     continue
                 
                 seen_heights.add(height)
                 seen_combinations.add(combo_key)
                 
-                # Quality labels
                 quality_labels = {
                     144:  "144p",
                     240:  "240p",
@@ -130,12 +112,10 @@ def get_video_info(url: str) -> Dict[str, Any]:
                     4320: "4320p 8K",
                 }
                 
-                # Get file size if available
                 filesize = f.get('filesize') or f.get('filesize_approx')
                 filesize_mb = round(filesize / (1024 * 1024), 1) if filesize else None
                 
-                # Get bitrate info
-                vbr = f.get('vbr')  # Video bitrate
+                vbr = f.get('vbr')
                 
                 format_entry = {
                     "id": format_id,
@@ -146,41 +126,42 @@ def get_video_info(url: str) -> Dict[str, Any]:
                     "vcodec": vcodec,
                 }
                 
-                # Add optional fields
                 if filesize_mb:
                     format_entry["size_mb"] = filesize_mb
                 if vbr:
-                    format_entry["bitrate"] = round(vbr / 1000)  # Convert to kbps
+                    format_entry["bitrate"] = round(vbr / 1000)
                 
                 formats.append(format_entry)
             
-            # Sort by resolution (lowest to highest)
             formats.sort(key=lambda x: x["height"])
             
-            # If no video formats found, might be audio-only content
-            if not formats:
-                logger.warning("No video formats found, checking for audio-only")
-                for f in info.get('formats', []):
-                    acodec = f.get('acodec', 'none')
-                    if acodec != 'none':
-                        logger.info("Audio-only content detected")
-                        break
+            # Add MP3 option
+            audio_formats = [f for f in info.get('formats', []) 
+                           if f.get('acodec', 'none') != 'none']
             
-            # Round duration
+            if audio_formats or formats:
+                formats.append({
+                    "id": "mp3",
+                    "quality": "Audio Only (MP3)",
+                    "height": 0,
+                    "ext": "mp3",
+                    "has_audio": True,
+                    "vcodec": "none",
+                })
+            
+            if not formats:
+                logger.warning("No formats found")
+                return {"error": "No downloadable formats found"}
+            
             raw_duration = info.get('duration')
             duration = int(round(raw_duration)) if raw_duration is not None else None
             
-            # Get best thumbnail
             thumbnail = info.get('thumbnail')
             thumbnails = info.get('thumbnails', [])
             if not thumbnail and thumbnails:
-                # Get highest quality thumbnail
                 thumbnail = thumbnails[-1].get('url')
             
-            # Get uploader info
-            uploader = info.get('uploader') or info.get('channel') or "Unknown"
-            
-            # View count
+            uploader = info.get('uploader') or info.get('channel') or info.get('creator') or "Unknown"
             view_count = info.get('view_count')
             
             result = {
@@ -192,19 +173,20 @@ def get_video_info(url: str) -> Dict[str, Any]:
                 "uploader": uploader,
             }
             
-            # Add optional fields
             if view_count:
                 result["views"] = view_count
             
-            # Add upload date if available
             upload_date = info.get('upload_date')
             if upload_date:
-                # Format: YYYYMMDD -> YYYY-MM-DD
                 try:
                     formatted_date = f"{upload_date[:4]}-{upload_date[4:6]}-{upload_date[6:]}"
                     result["upload_date"] = formatted_date
                 except:
                     pass
+            
+            description = info.get('description')
+            if description:
+                result["description"] = description[:200] + "..." if len(description) > 200 else description
             
             logger.info(f"Successfully extracted: {result['title']} ({len(formats)} formats)")
             return result
@@ -213,7 +195,6 @@ def get_video_info(url: str) -> Dict[str, Any]:
         error_msg = str(e)
         logger.error(f"DownloadError for {url}: {error_msg}")
         
-        # Parse specific errors
         if "Private video" in error_msg:
             return {"error": "This video is private"}
         elif "Video unavailable" in error_msg:
@@ -226,6 +207,8 @@ def get_video_info(url: str) -> Dict[str, Any]:
             return {"error": "Video not found (404)"}
         elif "HTTP Error 403" in error_msg:
             return {"error": "Access forbidden (403). May require cookies or be region-locked."}
+        elif "429" in error_msg or "Too Many Requests" in error_msg:
+            return {"error": "Rate limited. Please try again in a few minutes."}
         else:
             return {"error": f"Could not fetch video: {error_msg}"}
     
@@ -242,8 +225,7 @@ def verify_ytdlp_installation() -> bool:
     """Verify yt-dlp is installed and working"""
     try:
         with yt_dlp.YoutubeDL({'quiet': True}) as ydl:
-            # Just check version
-            version = ydl.params.get('version', 'unknown')
+            version = ydl._get_version()
             logger.info(f"yt-dlp version: {version}")
             return True
     except Exception as e:

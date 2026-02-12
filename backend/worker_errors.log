@@ -1,0 +1,13 @@
+2026-02-11 20:11:54,173 - worker - INFO - ======================================================================
+2026-02-11 20:11:54,307 - worker - INFO - ======================================================================
+2026-02-11 20:11:56,253 - worker - INFO - ======================================================================
+2026-02-11 20:11:56,462 - worker - INFO - ======================================================================
+2026-02-11 20:11:56,815 - main - INFO - ============================================================
+2026-02-11 20:11:56,957 - main - INFO - ============================================================
+2026-02-11 20:11:59,076 - main - INFO - ============================================================
+2026-02-11 20:12:25,819 - main - INFO - [HEALTH] Status: {'api': 'ok', 'redis': 'ok', 'celery': 'ok', 'timestamp': '2026-02-11T20:12:16.751730'}
+2026-02-11 20:12:27,992 - main - INFO - [ANALYZE] Starting for URL: https://www.youtube.com/watch?v=rRlyx054z20&list=RDrRlyx054z20&start_radio=1
+2026-02-11 20:12:27,992 - main - INFO - Validating URL: https://www.youtube.com/watch?v=rRlyx054z20&list=RDrRlyx054z20&start_radio=1
+2026-02-11 20:12:28,043 - main - INFO - [ANALYZE] Cache MISS - Fetching fresh data for: https://www.youtube.com/watch?v=rRlyx054z20&list=RDrRlyx054z20&start_radio=1
+2026-02-11 20:12:28,044 - services.scraper - WARNING - No cookies found - private/logged-in content may fail
+2026-02-11 20:12:28,194 - services.scraper - INFO - Extracting info for: https://www.youtube.com/watch?v=rRlyx054z20&list=RDrRlyx054z20&start_radio=1

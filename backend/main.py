@@ -5,7 +5,7 @@ from fastapi.responses import FileResponse
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from worker import download_video_task 
-from services.scraper import get_video_info
+from services.scraper import get_video_info  # CORRECT: services folder exists
 
 app = FastAPI(title="Pro StreamDown API")
 r = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)
@@ -13,11 +13,14 @@ limiter = Limiter(key_func=get_remote_address)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=["*"],  # Configure your frontend domain in production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Ensure temp directory exists on startup
+os.makedirs("temp_downloads", exist_ok=True)
 
 # --- INPUT VALIDATION ---
 SUPPORTED_DOMAINS = [
@@ -33,8 +36,13 @@ def validate_url(url: str):
     if not any(re.search(pattern, url) for pattern in SUPPORTED_DOMAINS):
         raise HTTPException(status_code=400, detail="Unsupported platform. Please use YouTube, X, TikTok, FB, or IG.")
 
+@app.get("/")
+async def root():
+    """Health check endpoint"""
+    return {"status": "ok", "service": "Pro StreamDown API"}
+
 @app.get("/analyze")
-@limiter.limit("10/minute") # Global Rate Limit
+@limiter.limit("10/minute")
 async def analyze(request: Request, url: str):
     validate_url(url)
     cache_key = f"meta:{url}"
@@ -48,49 +56,93 @@ async def analyze(request: Request, url: str):
     return data
 
 @app.get("/download/start")
-@limiter.limit("5/minute") # Prevent server overload
+@limiter.limit("5/minute")
 async def start_download(request: Request, url: str, format_id: str = "best"):
     validate_url(url)
     task_id = str(uuid.uuid4())
-    output_path = f"temp_downloads/{task_id}.mp4"
+    
+    # FIXED: Proper extension handling
+    if format_id == "mp3":
+        output_path = f"temp_downloads/{task_id}.mp3"
+    else:
+        output_path = f"temp_downloads/{task_id}.mp4"
     
     download_video_task.apply_async(args=[url, format_id, output_path], task_id=task_id)
-    return {"task_id": task_id}
+    return {"task_id": task_id, "status": "started"}
+
+@app.get("/download/status/{task_id}")
+async def check_status(task_id: str):
+    """REST endpoint to check status"""
+    result = download_video_task.AsyncResult(task_id)
+    
+    if result.state == 'PENDING':
+        return {"status": "queued", "progress": 0}
+    elif result.state == 'PROGRESS':
+        return {"status": "downloading", **result.info}
+    elif result.state == 'SUCCESS':
+        return {"status": "completed", "progress": 100}
+    elif result.state == 'FAILURE':
+        return {"status": "failed", "error": str(result.info)}
+    else:
+        return {"status": result.state}
 
 @app.get("/download/file/{task_id}")
 async def get_actual_file(task_id: str, background_tasks: BackgroundTasks, title: str = "video"):
-    """Handles professional file naming and auto-cleanup"""
-    file_path = f"temp_downloads/{task_id}.mp4"
-    safe_title = re.sub(r'[\\/*?:"<>|]', "", title)[:50] # Sanitize filename
+    """File download with proper extension handling"""
+    file_path_mp4 = f"temp_downloads/{task_id}.mp4"
+    file_path_mp3 = f"temp_downloads/{task_id}.mp3"
     
-    if os.path.exists(file_path):
-        def remove_file():
-            try: os.remove(file_path)
-            except: pass
+    safe_title = re.sub(r'[\\/*?:"<>|]', "", title)[:50]
+    
+    if os.path.exists(file_path_mp4):
+        file_path = file_path_mp4
+        filename = f"{safe_title}.mp4"
+        media_type = 'video/mp4'
+    elif os.path.exists(file_path_mp3):
+        file_path = file_path_mp3
+        filename = f"{safe_title}.mp3"
+        media_type = 'audio/mpeg'
+    else:
+        raise HTTPException(status_code=404, detail="File not found")
+    
+    def remove_file():
+        try: os.remove(file_path)
+        except: pass
 
-        response = FileResponse(
-            path=file_path,
-            filename=f"{safe_title}.mp4",
-            media_type='application/octet-stream'
-        )
-        background_tasks.add_task(remove_file) # Immediate cleanup
-        return response
-    raise HTTPException(status_code=404, detail="File expired")
+    response = FileResponse(path=file_path, filename=filename, media_type=media_type)
+    background_tasks.add_task(remove_file)
+    return response
 
 @app.websocket("/ws/progress/{task_id}")
 async def websocket_progress(websocket: WebSocket, task_id: str):
     await websocket.accept()
     try:
+        max_wait = 300
+        start = asyncio.get_event_loop().time()
+        
         while True:
+            if asyncio.get_event_loop().time() - start > max_wait:
+                await websocket.send_json({"status": "Error", "message": "Timeout"})
+                break
+            
             result = download_video_task.AsyncResult(task_id)
-            if result.state == 'PROGRESS':
+            
+            if result.state == 'PENDING':
+                await websocket.send_json({"progress": 0, "status": "Queued"})
+            elif result.state == 'PROGRESS':
                 await websocket.send_json(result.info)
             elif result.state == 'SUCCESS':
                 await websocket.send_json({"progress": 100, "status": "Finished", "task_id": task_id})
                 break
             elif result.state == 'FAILURE':
-                # Error Visibility: Send exact failure reason
                 await websocket.send_json({"status": "Error", "message": str(result.info)})
                 break
-            await asyncio.sleep(0.5) 
-    except WebSocketDisconnect: pass
+            
+            await asyncio.sleep(0.5)
+    except WebSocketDisconnect:
+        pass
+    except Exception as e:
+        try:
+            await websocket.send_json({"status": "Error", "message": str(e)})
+        except:
+            pass
