@@ -60,6 +60,12 @@ def get_video_info(url: str) -> Dict[str, Any]:
     
     if "tiktok.com" in url:
         ydl_opts['http_headers'] = {'Referer': 'https://www.tiktok.com/'}
+
+    # Proxy Support
+    proxy_url = os.getenv("PROXY_URL")
+    if proxy_url:
+        logger.info(f"Using proxy: {proxy_url}")
+        ydl_opts['proxy'] = proxy_url
     
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:

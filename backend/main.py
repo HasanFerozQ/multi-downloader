@@ -160,7 +160,8 @@ async def analyze_video_endpoint(request: Request, url: str):
     if cached:
         return json.loads(cached)
     
-    result = analyze_video_comprehensive(url)
+    # Run analysis in a separate thread to prevent blocking
+    result = await asyncio.to_thread(analyze_video_comprehensive, url)
     
     if "error" in result:
         raise HTTPException(status_code=400, detail=result["error"])

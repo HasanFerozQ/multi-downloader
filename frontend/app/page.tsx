@@ -244,18 +244,38 @@ export default function VideoAnalyzerPage() {
     setError("");
     setResult(null);
     setActiveSection(null);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+
     try {
-      const res = await fetch(`http://localhost:8000/analyze-video?url=${encodeURIComponent(url)}`);
-      const data = await res.json();
-      if (data.error || data.detail) {
-        setError(data.error || data.detail);
-      } else {
-        setResult(data);
+      const res = await fetch(`http://localhost:8000/analyze-video?url=${encodeURIComponent(url)}`, {
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+
+      if (!res.ok) {
+        if (res.status === 500) throw new Error("Server error (500). Please try again later.");
+        if (res.status === 429) throw new Error("Too many requests. Please wait a moment.");
+        if (res.status === 404) throw new Error("Video not found. Check the URL.");
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.detail || errData.error || `Request failed with status ${res.status}`);
       }
-    } catch {
-      setError("Backend connection failed. Make sure the server is running on port 8000.");
+
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+
+      setResult(data);
+    } catch (err: any) {
+      if (err.name === 'AbortError') {
+        setError("Analysis timed out. The video might be too long or the server is busy.");
+      } else {
+        setError(err.message || "Backend connection failed. Make sure the server is running on port 8000.");
+      }
+    } finally {
+      setLoading(false);
+      clearTimeout(timeoutId);
     }
-    setLoading(false);
   };
 
   const s = result?.sections;
