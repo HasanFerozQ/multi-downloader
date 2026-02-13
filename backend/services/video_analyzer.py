@@ -795,13 +795,7 @@ def analyze_video_comprehensive(url: str) -> Dict[str, Any]:
     Full video analysis — returns all 5 master scores + 31 sub-metrics.
     Compatible with the analyzer/page.tsx frontend.
     """
-    try:
-        from .scraper import get_video_info
-    except ImportError:
-        try:
-            from scraper import get_video_info
-        except ImportError:
-            return {"error": "Cannot import video info scraper"}
+    from services.scraper import get_video_info
 
     video_data = get_video_info(url)
     if "error" in video_data:

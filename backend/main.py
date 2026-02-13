@@ -7,7 +7,7 @@ from slowapi.util import get_remote_address
 from worker import download_video_task 
 from services.scraper import get_video_info  # CORRECT: services folder exists
 from services.video_analyzer import analyze_video_comprehensive
-from video_analyzer import analyze_video_comprehensive
+
 
 app = FastAPI(title="Pro StreamDown API")
 r = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)
@@ -169,11 +169,3 @@ async def analyze_video_endpoint(request: Request, url: str):
     r.setex(cache_key, 3600, json.dumps(result))
     return result
 
-
-@app.get("/analyze-video")
-async def analyze_video_endpoint(url: str):
-    try:
-        result = analyze_video_comprehensive(url)
-        return result
-    except Exception as e:
-        return {"error": str(e)}
