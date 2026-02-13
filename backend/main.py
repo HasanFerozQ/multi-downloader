@@ -1,12 +1,12 @@
-import uuid, asyncio, json, redis, os, re
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, HTTPException, BackgroundTasks
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
-from slowapi import Limiter
-from slowapi.util import get_remote_address
-from worker import download_video_task 
-from services.scraper import get_video_info  # CORRECT: services folder exists
-from services.video_analyzer import analyze_video_comprehensive
+import uuid, asyncio, json, redis, os, re  # type: ignore
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, HTTPException, BackgroundTasks  # type: ignore
+from fastapi.middleware.cors import CORSMiddleware  # type: ignore
+from fastapi.responses import FileResponse  # type: ignore
+from slowapi import Limiter  # type: ignore
+from slowapi.util import get_remote_address  # type: ignore
+from worker import download_video_task   # type: ignore
+from services.scraper import get_video_info  # type: ignore
+from services.video_analyzer import analyze_video_comprehensive  # type: ignore
 
 
 app = FastAPI(title="Pro StreamDown API")
@@ -94,7 +94,8 @@ async def get_actual_file(task_id: str, background_tasks: BackgroundTasks, title
     file_path_mp4 = f"temp_downloads/{task_id}.mp4"
     file_path_mp3 = f"temp_downloads/{task_id}.mp3"
     
-    safe_title = re.sub(r'[\\/*?:"<>|]', "", title)[:50]
+    # Use str() cast to satisfy strict linter for slice
+    safe_title = str(re.sub(r'[\\/*?:"<>|]', "", title))[:50]  # type: ignore
     
     if os.path.exists(file_path_mp4):
         file_path = file_path_mp4
@@ -155,7 +156,7 @@ async def analyze_video_endpoint(request: Request, url: str):
     """Comprehensive video analysis endpoint"""
     validate_url(url)
     
-    cache_key = f"analysis:{url}"
+    cache_key = f"analysis_v5:{url}"  # v5: Data validation, engagement metrics, precise timestamp
     cached = r.get(cache_key)
     if cached:
         return json.loads(cached)

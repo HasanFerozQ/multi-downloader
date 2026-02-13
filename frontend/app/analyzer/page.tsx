@@ -1,5 +1,9 @@
 "use client";
 import { useState } from "react";
+import {
+  Zap, Search, Clock, Rocket, Settings,
+  BarChart, Brain, MousePointer, ChevronDown, TrendingUp, Tag, Hash
+} from "lucide-react";
 
 // ─── Type Definitions ────────────────────────────────────────────────────────
 
@@ -122,6 +126,11 @@ interface AnalysisResult {
     title: string;
     suggestion: string;
   }>;
+  vph?: number;
+  tags?: string[];
+  reality_check?: {
+    boosts: string[];
+  };
 }
 
 // ─── Utility Functions ────────────────────────────────────────────────────────
@@ -163,49 +172,69 @@ function fmtNum(n: number): string {
 
 // ─── Sub-Components ──────────────────────────────────────────────────────────
 
-function ScoreBar({ value, max = 100 }: { value: number; max?: number }) {
-  const pct = (value / max) * 100;
+// 1. Metric Tab Card (The new "Lit Button")
+function MetricTabCard({
+  icon: Icon, label, score, isActive, onClick
+}: {
+  icon: any, label: string, score: number, isActive: boolean, onClick: () => void
+}) {
+  const color = scoreColor(score);
   return (
-    <div style={{ width: "100%", height: 8, background: "rgba(255,255,255,0.1)", borderRadius: 10, overflow: "hidden", marginTop: 8 }}>
-      <div style={{ width: `${pct}%`, height: "100%", background: fillGradient(value, max), borderRadius: 10, transition: "width 0.8s ease" }} />
+    <div
+      onClick={onClick}
+      className={`group relative cursor-pointer rounded-xl border p-4 transition-all duration-300 ${isActive
+        ? "bg-slate-800/80 border-indigo-500 shadow-[0_0_20px_rgba(99,102,241,0.3)] transform -translate-y-1"
+        : "bg-slate-800/30 border-slate-700 hover:border-slate-500 hover:bg-slate-800/50"
+        }`}
+      style={{ minWidth: 160, flex: 1 }}
+    >
+      <div className="flex flex-col items-center justify-center gap-2">
+        <Icon
+          size={24}
+          color={isActive ? color : "#94a3b8"}
+          className={`transition-all duration-300 ${isActive ? "drop-shadow-[0_0_8px_rgba(255,255,255,0.3)]" : ""}`}
+        />
+        <div className={`text-xs font-bold uppercase tracking-wider ${isActive ? "text-white" : "text-slate-400"}`}>
+          {label}
+        </div>
+        <div
+          className="text-2xl font-black transition-all duration-300"
+          style={{
+            color: color,
+            textShadow: isActive ? `0 0 15px ${color}80` : "none"
+          }}
+        >
+          {score}/100
+        </div>
+      </div>
     </div>
   );
 }
 
+// 2. Sub Metric Row (Cleaner, no emojis)
 function SubMetricRow({ name, value, max = 100 }: { name: string; value: number | string | undefined; max?: number }) {
   if (value === undefined || value === null) return null;
   const isText = typeof value === "string";
   const numVal = isText ? 0 : (value as number);
+
   return (
-    <div style={{ background: "rgba(255,255,255,0.03)", padding: "12px 15px", borderRadius: 8, display: "flex", justifyContent: "space-between", alignItems: "center", borderLeft: "3px solid #667eea", marginBottom: 8 }}>
-      <span style={{ color: "#ccc", fontSize: "0.95em" }}>{name}</span>
-      <span style={{ fontWeight: "bold", color: isText ? "#667eea" : scoreColor(numVal, max), fontSize: "1.1em" }}>
+    <div className="flex items-center justify-between rounded-lg border border-slate-700/50 bg-slate-800/20 p-4 mb-3">
+      <span className="text-slate-300 font-medium">{name}</span>
+      <span
+        className="font-bold text-lg"
+        style={{ color: isText ? "#818cf8" : scoreColor(numVal, max) }}
+      >
         {isText ? value : fmt(numVal, max)}
       </span>
     </div>
   );
 }
 
-function ExpandableSection({ title, icon, children, defaultOpen = false }: {
-  title: string; icon: string; children: React.ReactNode; defaultOpen?: boolean;
-}) {
-  const [open, setOpen] = useState(defaultOpen);
+// 3. Detail Panel (The content container)
+function DetailPanel({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ marginBottom: 16 }}>
-      <div
-        onClick={() => setOpen(!open)}
-        style={{ background: "rgba(102,126,234,0.2)", padding: "15px 20px", borderRadius: 10, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", border: "2px solid rgba(102,126,234,0.5)", transition: "background 0.2s" }}
-        onMouseEnter={e => (e.currentTarget.style.background = "rgba(102,126,234,0.32)")}
-        onMouseLeave={e => (e.currentTarget.style.background = "rgba(102,126,234,0.2)")}
-      >
-        <span style={{ fontSize: "1.1em", fontWeight: "bold" }}>{icon} {title}</span>
-        <span style={{ fontSize: "1.4em", transform: open ? "rotate(180deg)" : "none", transition: "transform 0.3s" }}>▼</span>
-      </div>
-      {open && (
-        <div style={{ marginTop: 12, padding: 20, background: "rgba(255,255,255,0.03)", borderRadius: 10, border: "1px solid rgba(102,126,234,0.3)" }}>
-          {children}
-        </div>
-      )}
+    <div className="mt-8 rounded-2xl border border-slate-700/50 bg-slate-900/40 p-6 backdrop-blur-sm animation-fade-in">
+      {children}
     </div>
   );
 }
@@ -223,7 +252,9 @@ function MasterCard({ icon, label, score, subtitle, active, onClick }: {
       <div style={{ fontSize: "2.5em", marginBottom: 8 }}>{icon}</div>
       <div style={{ color: "#ccc", fontSize: "0.9em", marginBottom: 8 }}>{label}</div>
       <div style={{ fontSize: "2.2em", fontWeight: "bold", color: scoreColor(score, 10) }}>{Math.round(score * 10)}</div>
-      <ScoreBar value={score} max={10} />
+      <div style={{ width: "100%", height: 8, background: "rgba(255,255,255,0.1)", borderRadius: 10, overflow: "hidden", marginTop: 8 }}>
+        <div style={{ width: `${score * 10}%`, height: "100%", background: fillGradient(score * 10, 100), borderRadius: 10, transition: "width 0.8s ease" }} />
+      </div>
       <div style={{ fontSize: "0.8em", color: "#888", marginTop: 8 }}>{subtitle}</div>
     </div>
   );
@@ -236,63 +267,195 @@ export default function VideoAnalyzerPage() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState("");
-  const [activeSection, setActiveSection] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<keyof AnalysisResult['sections']>('click_potential');
 
   const analyze = async () => {
     if (!url.trim()) { setError("Please enter a YouTube URL"); return; }
     setLoading(true);
     setError("");
     setResult(null);
-    setActiveSection(null);
+    setActiveTab('click_potential'); // Reset to first tab
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+
     try {
-      const res = await fetch(`http://localhost:8000/analyze-video?url=${encodeURIComponent(url)}`);
-      const data = await res.json();
-      if (data.error || data.detail) {
-        setError(data.error || data.detail);
-      } else {
-        setResult(data);
+      const res = await fetch(`http://localhost:8000/analyze-video?url=${encodeURIComponent(url)}`, {
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+
+      if (!res.ok) {
+        if (res.status === 500) throw new Error("Server error (500). Please try again later.");
+        if (res.status === 429) throw new Error("Too many requests. Please wait a moment.");
+        if (res.status === 404) throw new Error("Video not found. Check the URL.");
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.detail || errData.error || `Request failed with status ${res.status}`);
       }
-    } catch {
-      setError("Backend connection failed. Make sure the server is running on port 8000.");
+
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+
+      setResult(data);
+    } catch (err: any) {
+      if (err.name === 'AbortError') {
+        setError("Analysis timed out. The video might be too long or the server is busy.");
+      } else {
+        setError(err.message || "Backend connection failed. Make sure the server is running on port 8000.");
+      }
+    } finally {
+      setLoading(false);
+      clearTimeout(timeoutId);
     }
-    setLoading(false);
   };
 
   const s = result?.sections;
 
+  // Render content based on active tab
+  const renderTabContent = () => {
+    if (!s) return null;
+
+    switch (activeTab) {
+      case 'click_potential':
+        return (
+          <div className="space-y-2">
+            <SubMetricRow name="Title Performance Score" value={s.click_potential.sub_metrics.title_performance_score} />
+            <SubMetricRow name="CTR Predictor" value={s.click_potential.sub_metrics.ctr_predictor} max={10} />
+            <SubMetricRow name="Title Sentiment" value={s.click_potential.sub_metrics.title_sentiment} />
+            <SubMetricRow name="Thumbnail-Title Alignment" value={s.click_potential.sub_metrics.thumbnail_title_alignment} />
+            <SubMetricRow name="Hook Strength" value={s.click_potential.sub_metrics.hook_strength} max={10} />
+            {result?.metrics.ctr_reason && (
+              <div className="mt-4 rounded-lg bg-indigo-500/10 border border-indigo-500/20 p-4 text-indigo-200 text-sm">
+                💬 <strong>CTR Assessment:</strong> {result.metrics.ctr_reason}
+              </div>
+            )}
+          </div>
+        );
+      case 'seo_strength':
+        return (
+          <div className="space-y-2">
+            <SubMetricRow name="Keyword Density Map" value={s.seo_strength.sub_metrics.keyword_density_map} />
+            <SubMetricRow name="Description Structure Score" value={s.seo_strength.sub_metrics.description_structure_score} />
+            <SubMetricRow name="Tag Quality Score" value={s.seo_strength.sub_metrics.tag_quality_score} />
+            <SubMetricRow name="Searchability Index" value={s.seo_strength.sub_metrics.searchability_index} />
+            <SubMetricRow name={`Keyword Difficulty (${s.seo_strength.keyword_difficulty_label})`} value={s.seo_strength.sub_metrics.keyword_difficulty_score} />
+            {result?.metrics.keyword_position && (
+              <div className="mt-4 rounded-lg bg-indigo-500/10 border border-indigo-500/20 p-4 text-indigo-200 text-sm">
+                🔑 {result.metrics.keyword_position}
+              </div>
+            )}
+          </div>
+        );
+      case 'retention':
+        return (
+          <div className="space-y-2">
+            <SubMetricRow name="Pacing Score" value={s.retention.sub_metrics.pacing_score} />
+            <SubMetricRow name="Hook Strength (First 15s)" value={s.retention.sub_metrics.hook_strength_first_15s} max={10} />
+            <SubMetricRow name="Content Structure Completeness" value={s.retention.sub_metrics.content_structure_completeness} />
+            <SubMetricRow name="Engagement Signal Density" value={s.retention.sub_metrics.engagement_signal_density} max={10} />
+            <SubMetricRow name={`Drop-off Risk (${s.retention.sub_metrics.drop_off_risk_label})`} value={s.retention.sub_metrics.drop_off_risk_score} max={10} />
+            <SubMetricRow name="Watch Time Optimization" value={s.retention.sub_metrics.watch_time_optimization} />
+            {result?.metrics.retention_risks && result.metrics.retention_risks.length > 0 && (
+              <div className="mt-4 rounded-lg bg-red-500/10 border border-red-500/20 p-4">
+                {result.metrics.retention_risks.map((r, i) => (
+                  <div key={i} className="flex items-center gap-2 text-red-300 text-sm mb-1">
+                    ⚠️ {r}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      case 'virality':
+        return (
+          <div className="space-y-2">
+            <SubMetricRow name="Emotional Intensity Index" value={s.virality.sub_metrics.emotional_intensity_index} max={10} />
+            <SubMetricRow name="Shareability Score" value={s.virality.sub_metrics.shareability_score} />
+            <SubMetricRow name="Trend Alignment Score" value={s.virality.sub_metrics.trend_alignment_score} />
+            <SubMetricRow name="Controversy Meter" value={s.virality.sub_metrics.controversy_meter} max={10} />
+            <div className="mt-4 rounded-lg bg-indigo-500/10 border border-indigo-500/20 p-4">
+              <div className="mb-2 text-indigo-200 text-sm">🎯 Viral Probability: <strong style={{ color: result?.viral_probability === "High" ? "#10b981" : result?.viral_probability === "Medium" ? "#f59e0b" : "#ef4444" }}>{result?.viral_probability}</strong></div>
+              <div className="grid grid-cols-5 gap-2">
+                {Object.entries(result?.metrics.emotional_triggers || {}).map(([k, v]) => (
+                  <div key={k} className="text-center">
+                    <div className="font-bold text-lg" style={{ color: scoreColor(v, 10) }}>{v}/10</div>
+                    <div className="text-[10px] text-slate-400 capitalize">{k}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      case 'technical':
+        return (
+          <div className="space-y-2">
+            <SubMetricRow name="Video Length Optimization" value={s.technical.sub_metrics.video_length_optimization} />
+            <SubMetricRow name="Metadata Completeness" value={s.technical.sub_metrics.metadata_completeness} />
+            <SubMetricRow name={`Upload Timing (${s.technical.upload_timing_label})`} value={s.technical.sub_metrics.upload_timing_score} />
+          </div>
+        );
+      case 'competitive':
+        return (
+          <div className="space-y-2">
+            <SubMetricRow name="Title Uniqueness Score" value={s.competitive.sub_metrics.title_uniqueness_score} />
+            <SubMetricRow name="Duration Benchmarking" value={s.competitive.sub_metrics.duration_benchmarking} />
+            <SubMetricRow name={`Keyword Difficulty (${s.competitive.keyword_difficulty_label})`} value={s.competitive.sub_metrics.keyword_difficulty_score} />
+          </div>
+        );
+      case 'audience_psychology':
+        return (
+          <div className="space-y-2">
+            <SubMetricRow name="Curiosity Gap Score" value={s.audience_psychology.sub_metrics.curiosity_gap_score} max={10} />
+            <SubMetricRow name="Authority Signals" value={s.audience_psychology.sub_metrics.authority_signals} />
+            <SubMetricRow name="Relatability Index" value={s.audience_psychology.sub_metrics.relatability_index} />
+          </div>
+        );
+      case 'cta':
+        return (
+          <div className="space-y-2">
+            <SubMetricRow name="CTA Strength Score" value={s.cta.sub_metrics.cta_strength_score} />
+            <SubMetricRow name="Subscription Trigger Score" value={s.cta.sub_metrics.subscription_trigger_score} max={10} />
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
+
   return (
-    <main style={{ minHeight: "100vh", background: "linear-gradient(135deg,#1a1a2e 0%,#16213e 100%)", fontFamily: "'Segoe UI',Tahoma,Geneva,Verdana,sans-serif", padding: "20px", color: "white" }}>
-      <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+    <main className="min-h-screen bg-[conic-gradient(at_top_right,_var(--tw-gradient-stops))] from-slate-900 via-slate-900 to-indigo-950 text-white font-sans p-5">
+      <div className="max-w-6xl mx-auto">
 
         {/* ── Header ── */}
-        <h1 style={{ textAlign: "center", fontSize: "2.4em", marginBottom: 8, background: "linear-gradient(90deg,#667eea 0%,#764ba2 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+        <h1 className="text-center text-4xl font-bold mb-2 bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
           📊 Video Analyzer Metrics Dashboard
         </h1>
-        <p style={{ textAlign: "center", color: "#aaa", marginBottom: 32, fontSize: "1.05em" }}>
+        <p className="text-center text-slate-400 mb-8 text-lg">
           5 master scores · 31 sub-metrics · Real data from your video
         </p>
 
         {/* ── URL Input ── */}
-        <div style={{ background: "rgba(255,255,255,0.05)", border: "2px solid #667eea", borderRadius: 15, padding: 24, marginBottom: 28 }}>
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+        <div className="bg-white/5 border border-indigo-500/50 rounded-2xl p-6 mb-7">
+          <div className="flex gap-3 flex-wrap">
             <input
               type="text"
               value={url}
               onChange={e => setUrl(e.target.value)}
               onKeyDown={e => e.key === "Enter" && analyze()}
               placeholder="Paste YouTube URL here..."
-              style={{ flex: 1, minWidth: 260, padding: "14px 18px", borderRadius: 10, background: "rgba(255,255,255,0.07)", border: "1px solid rgba(102,126,234,0.4)", color: "white", fontSize: "1em", outline: "none" }}
+              className="flex-1 min-w-[260px] p-4 rounded-xl bg-white/5 border border-indigo-400/40 text-white text-lg outline-none focus:border-indigo-400 transition-colors"
             />
             <button
               onClick={analyze}
               disabled={loading}
-              style={{ padding: "14px 32px", background: loading ? "#334" : "linear-gradient(90deg,#667eea,#764ba2)", border: "none", borderRadius: 10, color: "white", fontWeight: "bold", fontSize: "1em", cursor: loading ? "not-allowed" : "pointer", letterSpacing: "0.05em", transition: "opacity 0.2s" }}
+              className={`px-8 py-3.5 rounded-xl font-bold text-lg tracking-wide transition-all ${loading ? "bg-slate-700 cursor-not-allowed" : "bg-gradient-to-r from-indigo-500 to-purple-600 hover:opacity-90 active:scale-95"
+                }`}
             >
               {loading ? "⏳ Analyzing..." : "🔍 Analyze"}
             </button>
           </div>
           {error && (
-            <div style={{ marginTop: 12, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.4)", borderRadius: 10, padding: "12px 16px", color: "#f87171" }}>
+            <div className="mt-3 bg-red-500/10 border border-red-500/40 rounded-xl p-3 text-red-400 flex items-center gap-2">
               ⚠️ {error}
             </div>
           )}
@@ -300,17 +463,17 @@ export default function VideoAnalyzerPage() {
 
         {/* ── Results ── */}
         {result && (
-          <>
-            {/* ── VIDEO INFO ── */}
-            <div style={{ background: "rgba(255,255,255,0.05)", border: "2px solid #667eea", borderRadius: 15, padding: 24, marginBottom: 28 }}>
-              <h2 style={{ color: "#667eea", marginBottom: 16, fontSize: "1.2em" }}>📹 VIDEO INFORMATION</h2>
-              <div style={{ display: "flex", gap: 20, flexWrap: "wrap", alignItems: "flex-start" }}>
+          <div className="animate-in fade-in slide-in-from-bottom-5 duration-500">
+            {/* ── 1. VIDEO INFO (Preserved) ── */}
+            <div className="bg-white/5 border border-indigo-500/50 rounded-2xl p-6 mb-7">
+              <h2 className="text-indigo-400 mb-4 text-xl font-bold flex items-center gap-2">📹 VIDEO INFORMATION</h2>
+              <div className="flex gap-5 flex-wrap items-start">
                 {result.thumbnail && (
-                  <img src={result.thumbnail} alt="Thumbnail" style={{ width: 200, borderRadius: 10, flexShrink: 0, boxShadow: "0 4px 20px rgba(0,0,0,0.5)" }} />
+                  <img src={result.thumbnail} alt="Thumbnail" className="w-[200px] rounded-xl shadow-lg flex-shrink-0" />
                 )}
-                <div style={{ flex: 1, minWidth: 240 }}>
-                  <div style={{ fontSize: "1.15em", fontWeight: "bold", marginBottom: 14 }}>{result.title}</div>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px,1fr))", gap: 10 }}>
+                <div className="flex-1 min-w-[240px]">
+                  <div className="text-xl font-bold mb-3">{result.title}</div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     {[
                       ["⏱️ Duration", result.metrics.duration_formatted],
                       ["👁️ Views", fmtNum(result.views)],
@@ -324,9 +487,9 @@ export default function VideoAnalyzerPage() {
                       ["# Hashtags", `${result.metadata.hashtag_count}`],
                       ["🕐 Timestamps", `${result.metadata.timestamp_count}`],
                     ].map(([label, val]) => (
-                      <div key={label as string} style={{ background: "rgba(102,126,234,0.1)", padding: "10px 12px", borderRadius: 8, borderLeft: "3px solid #667eea" }}>
-                        <div style={{ color: "#aaa", fontSize: "0.78em", marginBottom: 3 }}>{label}</div>
-                        <div style={{ fontSize: "1.05em", fontWeight: "bold", color: "#667eea" }}>{val}</div>
+                      <div key={label as string} className="bg-indigo-500/10 p-2.5 rounded-lg border-l-2 border-indigo-500">
+                        <div className="text-slate-400 text-xs mb-1">{label}</div>
+                        <div className="text-indigo-400 font-bold">{val}</div>
                       </div>
                     ))}
                   </div>
@@ -334,138 +497,255 @@ export default function VideoAnalyzerPage() {
               </div>
             </div>
 
-            {/* ── PERFORMANCE DASHBOARD ── */}
-            <div style={{ background: "linear-gradient(135deg,rgba(102,126,234,0.2),rgba(118,75,162,0.2))", border: "3px solid #667eea", borderRadius: 20, padding: 30, marginBottom: 28, boxShadow: "0 10px 40px rgba(102,126,234,0.3)" }}>
-              <h2 style={{ textAlign: "center", fontSize: "1.8em", marginBottom: 20 }}>🎯 PERFORMANCE DASHBOARD</h2>
+            {/* ── 2. PERFORMANCE DASHBOARD (Preserved) ── */}
+            <div className="bg-gradient-to-br from-indigo-900/40 to-purple-900/40 border-2 border-indigo-500 rounded-2xl p-8 mb-7 shadow-[0_10px_40px_rgba(99,102,241,0.2)]">
+              <h2 className="text-center text-2xl font-bold mb-5 tracking-tight">🎯 PERFORMANCE DASHBOARD</h2>
 
-              <div style={{ textAlign: "center", marginBottom: 28 }}>
-                <div style={{ fontSize: "5em", fontWeight: "bold", color: scoreColor(result.overall_score) }}>{result.overall_score}</div>
-                <div style={{ color: "#aaa", fontSize: "1.1em", marginTop: -8 }}>OVERALL VIDEO SCORE / 100 · Grade: <strong style={{ color: scoreColor(result.overall_score) }}>{result.grade}</strong></div>
+              <div className="text-center mb-7">
+                <div className="text-7xl font-black mb-2" style={{ color: scoreColor(result.overall_score) }}>{result.overall_score}</div>
+                <div className="text-slate-400 text-lg">OVERALL VIDEO SCORE / 100 · Grade: <strong style={{ color: scoreColor(result.overall_score) }}>{result.grade}</strong></div>
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 16 }}>
-                <MasterCard icon="⚡" label="Click Potential" score={result.click_potential} subtitle="Will people click?" active={activeSection === "click"} onClick={() => setActiveSection(activeSection === "click" ? null : "click")} />
-                <MasterCard icon="🔍" label="SEO Strength" score={result.seo_score} subtitle="Can it be found?" active={activeSection === "seo"} onClick={() => setActiveSection(activeSection === "seo" ? null : "seo")} />
-                <MasterCard icon="⏱️" label="Retention Prediction" score={result.retention_score} subtitle="Will they watch?" active={activeSection === "retention"} onClick={() => setActiveSection(activeSection === "retention" ? null : "retention")} />
-                <MasterCard icon="🚀" label="Viral Probability" score={result.viral_score} subtitle="Can it go viral?" active={activeSection === "viral"} onClick={() => setActiveSection(activeSection === "viral" ? null : "viral")} />
-                <MasterCard icon="⚙️" label="Technical Quality" score={result.technical_score} subtitle="Is it optimized?" active={activeSection === "technical"} onClick={() => setActiveSection(activeSection === "technical" ? null : "technical")} />
-              </div>
-
-              <div style={{ background: "rgba(251,191,36,0.1)", borderLeft: "4px solid #fbbf24", padding: 14, marginTop: 24, borderRadius: 8, color: "#fbbf24", fontSize: "0.9em" }}>
-                <strong>💡 How to use:</strong> Click any master score card above to jump directly to that section's detailed breakdown below.
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                {/* Note: We are using the layout from the previous version but simplifying handlers since navigation is now separate */}
+                <div className="md:contents">
+                  <MasterCard icon="⚡" label="Click Potential" score={result.click_potential} subtitle="Will people click?" active={false} onClick={() => { }} />
+                  <MasterCard icon="🔍" label="SEO Strength" score={result.seo_score} subtitle="Can it be found?" active={false} onClick={() => { }} />
+                  <MasterCard icon="⏱️" label="Retention" score={result.retention_score} subtitle="Will they watch?" active={false} onClick={() => { }} />
+                  <MasterCard icon="🚀" label="Viral Probability" score={result.viral_score} subtitle="Can it go viral?" active={false} onClick={() => { }} />
+                  <MasterCard icon="⚙️" label="Technical" score={result.technical_score} subtitle="Is it optimized?" active={false} onClick={() => { }} />
+                </div>
               </div>
             </div>
 
-            {/* ── 8 EXPANDABLE DETAIL SECTIONS ── */}
+            {/* ── 2.5 AUTHENTIC INSIGHTS (NEW) ── */}
+            <div className="bg-white/5 border border-indigo-500/50 rounded-2xl p-6 mb-7">
+              <h2 className="text-indigo-400 mb-4 text-xl font-bold flex items-center gap-2">🚀 GENUINE INSIGHTS & REALITY CHECK</h2>
 
-            {/* SECTION 1 — Click Potential */}
-            <ExpandableSection title="SECTION 1: Click Potential Metrics (5 metrics)" icon="⚡" defaultOpen={activeSection === "click"}>
-              <SubMetricRow name="1. Title Performance Score" value={s?.click_potential?.sub_metrics?.title_performance_score} />
-              <SubMetricRow name="2. CTR Predictor" value={s?.click_potential?.sub_metrics?.ctr_predictor} max={10} />
-              <SubMetricRow name="3. Title Sentiment" value={s?.click_potential?.sub_metrics?.title_sentiment as string | undefined} />
-              <SubMetricRow name="4. Thumbnail-Title Alignment" value={s?.click_potential?.sub_metrics?.thumbnail_title_alignment} />
-              <SubMetricRow name="5. Hook Strength" value={s?.click_potential?.sub_metrics?.hook_strength} max={10} />
-              {result.metrics.ctr_reason && (
-                <div style={{ marginTop: 10, padding: 12, background: "rgba(102,126,234,0.1)", borderRadius: 8, color: "#ccc", fontSize: "0.9em" }}>
-                  💬 CTR Assessment: {result.metrics.ctr_reason}
+              {/* Reality Check Banner */}
+              {result.reality_check && result.reality_check.boosts && result.reality_check.boosts.length > 0 && (
+                <div className="mb-6 p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-xl">
+                  <h3 className="text-emerald-400 font-bold flex items-center gap-2 mb-2">
+                    <TrendingUp size={20} />
+                    Performance Boost Active
+                  </h3>
+                  <div className="space-y-1">
+                    {result.reality_check.boosts.map((boost, i) => (
+                      <div key={i} className="text-emerald-200 text-sm flex items-center gap-2">
+                        ✨ {boost}
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-emerald-500/60 mt-2">
+                    * Because this video is performing well in the real world, we've adjusted its scores to match reality, ignoring some theoretical rules.
+                  </p>
                 </div>
               )}
-            </ExpandableSection>
 
-            {/* SECTION 2 — SEO Strength */}
-            <ExpandableSection title="SECTION 2: Enhanced SEO Metrics (5 metrics)" icon="🔍" defaultOpen={activeSection === "seo"}>
-              <SubMetricRow name="6. Keyword Density Map" value={s?.seo_strength?.sub_metrics?.keyword_density_map} />
-              <SubMetricRow name="7. Description Structure Score" value={s?.seo_strength?.sub_metrics?.description_structure_score} />
-              <SubMetricRow name="8. Tag Quality Score" value={s?.seo_strength?.sub_metrics?.tag_quality_score} />
-              <SubMetricRow name="9. Searchability Index" value={s?.seo_strength?.sub_metrics?.searchability_index} />
-              <SubMetricRow name={`10. Keyword Difficulty — ${s?.seo_strength?.keyword_difficulty_label}`} value={s?.seo_strength?.sub_metrics?.keyword_difficulty_score} />
-              {result.metrics.keyword_position && (
-                <div style={{ marginTop: 10, padding: 12, background: "rgba(102,126,234,0.1)", borderRadius: 8, color: "#ccc", fontSize: "0.9em" }}>
-                  🔑 {result.metrics.keyword_position}
-                </div>
-              )}
-            </ExpandableSection>
-
-            {/* SECTION 3 — Retention */}
-            <ExpandableSection title="SECTION 3: Retention & Watchability (6 metrics)" icon="⏱️" defaultOpen={activeSection === "retention"}>
-              <SubMetricRow name="11. Pacing Score" value={s?.retention?.sub_metrics?.pacing_score} />
-              <SubMetricRow name="12. Hook Strength (First 15s)" value={s?.retention?.sub_metrics?.hook_strength_first_15s} max={10} />
-              <SubMetricRow name="13. Content Structure Completeness" value={s?.retention?.sub_metrics?.content_structure_completeness} />
-              <SubMetricRow name="14. Engagement Signal Density" value={s?.retention?.sub_metrics?.engagement_signal_density} max={10} />
-              <SubMetricRow name={`15. Drop-off Risk — ${s?.retention?.sub_metrics?.drop_off_risk_label}`} value={s?.retention?.sub_metrics?.drop_off_risk_score} max={10} />
-              <SubMetricRow name="16. Watch Time Optimization" value={s?.retention?.sub_metrics?.watch_time_optimization} />
-              {result.metrics.retention_risks?.length > 0 && (
-                <div style={{ marginTop: 10, padding: 12, background: "rgba(239,68,68,0.08)", borderRadius: 8, border: "1px solid rgba(239,68,68,0.2)" }}>
-                  {result.metrics.retention_risks.map((r, i) => (
-                    <div key={i} style={{ color: "#fca5a5", fontSize: "0.88em", marginBottom: 4 }}>⚠️ {r}</div>
-                  ))}
-                </div>
-              )}
-            </ExpandableSection>
-
-            {/* SECTION 4 — Virality */}
-            <ExpandableSection title="SECTION 4: Virality Potential (4 metrics)" icon="🚀" defaultOpen={activeSection === "viral"}>
-              <SubMetricRow name="17. Emotional Intensity Index" value={s?.virality?.sub_metrics?.emotional_intensity_index} max={10} />
-              <SubMetricRow name="18. Shareability Score" value={s?.virality?.sub_metrics?.shareability_score} />
-              <SubMetricRow name="19. Trend Alignment Score" value={s?.virality?.sub_metrics?.trend_alignment_score} />
-              <SubMetricRow name="20. Controversy Meter" value={s?.virality?.sub_metrics?.controversy_meter} max={10} />
-              <div style={{ marginTop: 12, padding: 14, background: "rgba(102,126,234,0.1)", borderRadius: 8 }}>
-                <div style={{ color: "#ccc", fontSize: "0.9em", marginBottom: 8 }}>🎯 Viral Probability: <strong style={{ color: result.viral_probability === "High" ? "#10b981" : result.viral_probability === "Medium" ? "#f59e0b" : "#ef4444" }}>{result.viral_probability}</strong></div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 8, marginTop: 8 }}>
-                  {Object.entries(result.metrics.emotional_triggers || {}).map(([k, v]) => (
-                    <div key={k} style={{ textAlign: "center" }}>
-                      <div style={{ fontSize: "1.4em", fontWeight: "bold", color: scoreColor(v, 10) }}>{v}/10</div>
-                      <div style={{ fontSize: "0.72em", color: "#888", textTransform: "capitalize" }}>{k}</div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* VPH Card */}
+                <div className="bg-slate-900/50 rounded-xl p-5 border border-indigo-500/30">
+                  <div className="flex items-center gap-2 mb-2 text-indigo-300">
+                    <Clock size={18} />
+                    <span className="font-bold">Velocity (VPH)</span>
+                  </div>
+                  <div className="flex items-end gap-2">
+                    <div className="text-4xl font-bold text-white">
+                      {result.vph?.toLocaleString() || 0}
                     </div>
-                  ))}
+                    <div className="text-sm text-slate-400 mb-1">views/hour</div>
+                  </div>
+                  <div className="mt-2 text-xs text-slate-500">
+                    {Number(result.vph) > 1000 ? "🔥 Viral velocity" : Number(result.vph) > 100 ? "⚡ High velocity" : "Standard velocity"}
+                  </div>
+                </div>
+
+                {/* Engagement Card */}
+                <div className="bg-slate-900/50 rounded-xl p-5 border border-indigo-500/30">
+                  <div className="flex items-center gap-2 mb-2 text-pink-300">
+                    <Brain size={18} />
+                    <span className="font-bold">Real Engagement Score</span>
+                  </div>
+                  <div className="flex items-end gap-2">
+                    <div className="text-4xl font-bold text-white">
+                      {result.engagement_rate}%
+                    </div>
+                    <div className="text-sm text-slate-400 mb-1">likes & comments / views</div>
+                  </div>
+                  <div className="mt-2 text-xs text-slate-500">
+                    Industry avg: ~3-4%
+                  </div>
                 </div>
               </div>
-            </ExpandableSection>
 
-            {/* SECTION 5 — Technical Quality */}
-            <ExpandableSection title="SECTION 5: Technical Quality (3 metrics)" icon="⚙️" defaultOpen={activeSection === "technical"}>
-              <SubMetricRow name="21. Video Length Optimization" value={s?.technical?.sub_metrics?.video_length_optimization} />
-              <SubMetricRow name="22. Metadata Completeness" value={s?.technical?.sub_metrics?.metadata_completeness} />
-              <SubMetricRow name={`23. Upload Timing — ${s?.technical?.upload_timing_label}`} value={s?.technical?.sub_metrics?.upload_timing_score} />
-            </ExpandableSection>
+              {/* Tags Cloud */}
+              {result.tags && result.tags.length > 0 && (
+                <div className="mt-6">
+                  <div className="flex items-center gap-2 mb-3 text-slate-300">
+                    <Tag size={16} />
+                    <span className="font-bold text-sm uppercase tracking-wider">Video Tags</span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {result.tags.map((tag, i) => (
+                      <span key={i} className="px-3 py-1 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 rounded-full text-sm border border-indigo-500/20 transition-colors cursor-default">
+                        #{tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
 
-            {/* SECTION 6 — Competitive Intelligence */}
-            <ExpandableSection title="SECTION 6: Competitive Intelligence (3 metrics)" icon="📈">
-              <SubMetricRow name="24. Title Uniqueness Score" value={s?.competitive?.sub_metrics?.title_uniqueness_score} />
-              <SubMetricRow name="25. Duration Benchmarking" value={s?.competitive?.sub_metrics?.duration_benchmarking as string | undefined} />
-              <SubMetricRow name={`26. Keyword Difficulty — ${s?.competitive?.keyword_difficulty_label}`} value={s?.competitive?.sub_metrics?.keyword_difficulty_score} />
-            </ExpandableSection>
+            {/* ── 3. DETAILED ANALYSIS (VERTICAL SECTIONS) ── */}
+            <div className="space-y-6 mb-8">
+              {/* Helper to render sub-metrics as cards */}
+              {([
+                { id: 'click_potential', icon: Zap, label: 'Click Potential Metrics', count: 5 },
+                { id: 'seo_strength', icon: Search, label: 'SEO Strength Metrics', count: 5 },
+                { id: 'retention', icon: Clock, label: 'Retention & Watchability', count: 6 },
+                { id: 'virality', icon: Rocket, label: 'Virality Potential', count: 4 },
+                { id: 'technical', icon: Settings, label: 'Technical Quality', count: 3 },
+                { id: 'competitive', icon: BarChart, label: 'Competitive Intelligence', count: 3 },
+                { id: 'audience_psychology', icon: Brain, label: 'Audience Psychology', count: 3 },
+                { id: 'cta', icon: MousePointer, label: 'Call-to-Action', count: 2 },
+              ] as const).map((section) => {
+                const s = result.sections; // Define s here for the new structure
+                const sectionData = s[section.id];
+                // Map sub-metrics for this section
+                // We manually construct the list based on the type definition to ensure order
+                let metrics: { name: string, value: any, max?: number }[] = [];
 
-            {/* SECTION 7 — Audience Psychology */}
-            <ExpandableSection title="SECTION 7: Audience Psychology (3 metrics)" icon="🧠">
-              <SubMetricRow name="27. Curiosity Gap Score" value={s?.audience_psychology?.sub_metrics?.curiosity_gap_score} max={10} />
-              <SubMetricRow name="28. Authority Signals" value={s?.audience_psychology?.sub_metrics?.authority_signals} />
-              <SubMetricRow name="29. Relatability Index" value={s?.audience_psychology?.sub_metrics?.relatability_index} />
-            </ExpandableSection>
+                if (section.id === 'click_potential') {
+                  metrics = [
+                    { name: "Title Performance", value: sectionData.sub_metrics.title_performance_score },
+                    { name: "CTR Predictor", value: sectionData.sub_metrics.ctr_predictor, max: 10 },
+                    { name: "Hook Strength", value: sectionData.sub_metrics.hook_strength, max: 10 },
+                    { name: "Thumbnail-Title", value: sectionData.sub_metrics.thumbnail_title_alignment },
+                    { name: "Title Sentiment", value: sectionData.sub_metrics.title_sentiment },
+                  ];
+                } else if (section.id === 'seo_strength') {
+                  metrics = [
+                    { name: "Keyword Density", value: sectionData.sub_metrics.keyword_density_map },
+                    { name: "Desc. Structure", value: sectionData.sub_metrics.description_structure_score },
+                    { name: "Tag Quality", value: sectionData.sub_metrics.tag_quality_score },
+                    { name: "Searchability", value: sectionData.sub_metrics.searchability_index },
+                    { name: `Difficulty (${sectionData.keyword_difficulty_label || 'N/A'})`, value: sectionData.sub_metrics.keyword_difficulty_score },
+                  ];
+                } else if (section.id === 'retention') {
+                  metrics = [
+                    { name: "Pacing Score", value: sectionData.sub_metrics.pacing_score },
+                    { name: "Hook (First 15s)", value: sectionData.sub_metrics.hook_strength_first_15s, max: 10 },
+                    { name: "Structure", value: sectionData.sub_metrics.content_structure_completeness },
+                    { name: "Engagement Density", value: sectionData.sub_metrics.engagement_signal_density, max: 10 },
+                    { name: `Drop-off Risk`, value: sectionData.sub_metrics.drop_off_risk_score, max: 10 },
+                    { name: "Watch Time Opt.", value: sectionData.sub_metrics.watch_time_optimization },
+                  ];
+                } else if (section.id === 'virality') {
+                  metrics = [
+                    { name: "Emotional Intensity", value: sectionData.sub_metrics.emotional_intensity_index, max: 10 },
+                    { name: "Shareability", value: sectionData.sub_metrics.shareability_score },
+                    { name: "Trend Alignment", value: sectionData.sub_metrics.trend_alignment_score },
+                    { name: "Controversy", value: sectionData.sub_metrics.controversy_meter, max: 10 },
+                  ];
+                } else if (section.id === 'technical') {
+                  metrics = [
+                    { name: "Length Optimization", value: sectionData.sub_metrics.video_length_optimization },
+                    { name: "Metadata Complete", value: sectionData.sub_metrics.metadata_completeness },
+                    { name: `Upload Timing`, value: sectionData.sub_metrics.upload_timing_score },
+                  ];
+                } else if (section.id === 'competitive') {
+                  metrics = [
+                    { name: "Title Uniqueness", value: sectionData.sub_metrics.title_uniqueness_score },
+                    { name: "Duration Bench.", value: sectionData.sub_metrics.duration_benchmarking },
+                    { name: "Keyword Diff.", value: sectionData.sub_metrics.keyword_difficulty_score },
+                  ];
+                } else if (section.id === 'audience_psychology') {
+                  metrics = [
+                    { name: "Curiosity Gap", value: sectionData.sub_metrics.curiosity_gap_score, max: 10 },
+                    { name: "Authority Signals", value: sectionData.sub_metrics.authority_signals },
+                    { name: "Relatability", value: sectionData.sub_metrics.relatability_index },
+                  ];
+                } else if (section.id === 'cta') {
+                  metrics = [
+                    { name: "CTA Strength", value: sectionData.sub_metrics.cta_strength_score },
+                    { name: "Sub Trigger", value: sectionData.sub_metrics.subscription_trigger_score, max: 10 },
+                  ];
+                }
 
-            {/* SECTION 8 — CTA Analysis */}
-            <ExpandableSection title="SECTION 8: Call-to-Action Analysis (2 metrics)" icon="📢">
-              <SubMetricRow name="30. CTA Strength Score" value={s?.cta?.sub_metrics?.cta_strength_score} />
-              <SubMetricRow name="31. Subscription Trigger Score" value={s?.cta?.sub_metrics?.subscription_trigger_score} max={10} />
-            </ExpandableSection>
+                return (
+                  <div key={section.id} className="bg-slate-900/50 border border-indigo-500/30 rounded-2xl overflow-hidden">
+                    {/* Header */}
+                    <div className="bg-white/5 p-4 flex items-center justify-between cursor-pointer hover:bg-white/10 transition-colors">
+                      <div className="flex items-center gap-3">
+                        <section.icon size={24} className="text-indigo-400" />
+                        <h3 className="text-xl font-bold text-white">{section.label}</h3>
+                        <span className="text-xs bg-indigo-500/20 text-indigo-300 px-2 py-1 rounded-full">{metrics.length} metrics</span>
+                      </div>
+                    </div>
 
-            {/* ── RECOMMENDATIONS ── */}
+                    {/* Grid of Cards */}
+                    <div className="p-6 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                      {metrics.map((m, idx) => {
+                        if (m.value === undefined || m.value === null) return null;
+                        const isText = typeof m.value === 'string';
+                        const numVal = isText ? 0 : (m.value as number);
+                        const displayVal = isText ? m.value : fmt(numVal, m.max);
+                        const color = isText ? "#818cf8" : scoreColor(numVal, m.max || 100);
+
+                        return (
+                          <div key={idx} className="bg-slate-800/40 border border-slate-700/50 rounded-xl p-4 flex flex-col items-center text-center hover:border-indigo-500/50 transition-all group">
+                            <div className="text-xs text-slate-400 uppercase tracking-wider mb-2 h-8 flex items-center justify-center">{m.name}</div>
+                            <div
+                              className="text-2xl font-black transition-all group-hover:scale-110"
+                              style={{ color: color, textShadow: `0 0 10px ${color}40` }}
+                            >
+                              {displayVal}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Specific Alerts/Messages using clean styling */}
+                    {section.id === 'retention' && result.metrics.retention_risks?.length > 0 && (
+                      <div className="mx-6 mb-6 rounded-lg bg-rose-500/10 border border-rose-500/20 p-4">
+                        {result.metrics.retention_risks.map((r, i) => (
+                          <div key={i} className="flex items-center gap-2 text-rose-300 text-sm font-medium">
+                            ⚠️ {r}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {section.id === 'click_potential' && result.metrics.ctr_reason && (
+                      <div className="mx-6 mb-6 rounded-lg bg-indigo-500/10 border border-indigo-500/20 p-4 text-indigo-300 text-sm">
+                        💬 {result.metrics.ctr_reason}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* ── 4. RECOMMENDATIONS (Preserved) ── */}
             {result.recommendations?.length > 0 && (
-              <div style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(102,126,234,0.3)", borderRadius: 15, padding: 24, marginTop: 16 }}>
-                <h3 style={{ color: "#667eea", marginBottom: 16, fontSize: "1.3em" }}>💡 Action Items & Recommendations</h3>
-                <div>
+              <div className="bg-white/5 border border-indigo-500/30 rounded-2xl p-6 mt-6">
+                <h3 className="text-indigo-400 mb-4 text-xl font-bold flex items-center gap-2">💡 Action Items & Recommendations</h3>
+                <div className="grid gap-3">
                   {result.recommendations.map((rec, i) => {
                     const borderColor = rec.priority === "high" ? "#ef4444" : rec.priority === "medium" ? "#f59e0b" : "#10b981";
                     const bgColor = rec.priority === "high" ? "rgba(239,68,68,0.07)" : rec.priority === "medium" ? "rgba(245,158,11,0.07)" : "rgba(16,185,129,0.07)";
                     return (
-                      <div key={i} style={{ padding: 16, marginBottom: 10, borderRadius: 10, borderLeft: `4px solid ${borderColor}`, background: bgColor }}>
-                        <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-                          <span style={{ fontSize: "1.5em" }}>{rec.priority === "high" ? "🔴" : rec.priority === "medium" ? "🟡" : "🟢"}</span>
+                      <div key={i} className="p-4 rounded-xl border-l-[4px]" style={{ borderColor, background: bgColor }}>
+                        <div className="flex gap-4 items-start">
+                          <span className="text-2xl">{rec.priority === "high" ? "🔴" : rec.priority === "medium" ? "🟡" : "🟢"}</span>
                           <div>
-                            <div style={{ fontWeight: "bold", marginBottom: 4 }}>{rec.title}</div>
-                            <div style={{ color: "#ccc", fontSize: "0.9em" }}>{rec.suggestion}</div>
-                            <span style={{ display: "inline-block", marginTop: 6, fontSize: "0.75em", padding: "2px 10px", borderRadius: 20, background: `${borderColor}22`, color: borderColor, fontWeight: "bold" }}>
-                              {rec.priority.toUpperCase()} PRIORITY
+                            <div className="font-bold mb-1">{rec.title}</div>
+                            <div className="text-slate-400 text-sm mb-2">{rec.suggestion}</div>
+                            <span
+                              className="inline-block text-[10px] px-3 py-1 rounded-full font-bold uppercase tracking-wider"
+                              style={{ background: `${borderColor}22`, color: borderColor }}
+                            >
+                              {rec.priority} PRIORITY
                             </span>
                           </div>
                         </div>
@@ -477,28 +757,28 @@ export default function VideoAnalyzerPage() {
             )}
 
             {/* ── SUMMARY NOTE ── */}
-            <div style={{ background: "rgba(251,191,36,0.1)", borderLeft: "4px solid #fbbf24", padding: 16, marginTop: 20, marginBottom: 20, borderRadius: 8, color: "#fbbf24", fontSize: "0.88em", lineHeight: 1.7 }}>
+            <div className="bg-amber-500/10 border-l-4 border-amber-500 p-4 mt-6 rounded-lg text-amber-500 text-sm leading-relaxed">
               <strong>📋 COLOR GUIDE:</strong><br />
-              <span style={{ color: "#10b981" }}>● Green (75–100)</span> = Excellent &nbsp;
-              <span style={{ color: "#3b82f6" }}>● Blue (50–74)</span> = Good &nbsp;
-              <span style={{ color: "#f59e0b" }}>● Orange (30–49)</span> = Average &nbsp;
-              <span style={{ color: "#ef4444" }}>● Red (0–29)</span> = Needs work
+              <span className="text-emerald-500">● Green (75–100)</span> = Excellent &nbsp;
+              <span className="text-blue-500">● Blue (50–74)</span> = Good &nbsp;
+              <span className="text-amber-500">● Orange (30–49)</span> = Average &nbsp;
+              <span className="text-red-500">● Red (0–29)</span> = Needs work
             </div>
-          </>
+          </div>
         )}
 
         {/* ── Empty state ── */}
         {!result && !loading && (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 20, marginTop: 32 }}>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mt-10">
             {[
               { icon: "🎯", title: "31 Sub-Metrics", desc: "Every ranking factor analysed in depth" },
               { icon: "⚡", title: "5 Master Scores", desc: "Click, SEO, Retention, Viral, Technical" },
               { icon: "📋", title: "Actionable Fixes", desc: "Prioritised recommendations to improve rank" },
             ].map(item => (
-              <div key={item.title} style={{ background: "rgba(255,255,255,0.04)", borderRadius: 15, padding: 28, textAlign: "center", border: "1px solid rgba(102,126,234,0.3)" }}>
-                <div style={{ fontSize: "3em", marginBottom: 12 }}>{item.icon}</div>
-                <div style={{ fontWeight: "bold", fontSize: "1.1em", marginBottom: 6 }}>{item.title}</div>
-                <div style={{ color: "#aaa", fontSize: "0.9em" }}>{item.desc}</div>
+              <div key={item.title} className="bg-white/5 border border-indigo-500/30 rounded-2xl p-8 text-center hover:bg-white/10 transition-colors">
+                <div className="text-5xl mb-4">{item.icon}</div>
+                <div className="font-bold text-lg mb-2">{item.title}</div>
+                <div className="text-slate-400 text-sm">{item.desc}</div>
               </div>
             ))}
           </div>

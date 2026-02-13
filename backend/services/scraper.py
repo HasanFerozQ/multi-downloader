@@ -1,4 +1,4 @@
-import yt_dlp
+import yt_dlp  # type: ignore
 import os
 import logging
 from typing import Dict, Any, Optional
@@ -45,7 +45,7 @@ def get_video_info(url: str) -> Dict[str, Any]:
     
     cookie_path = get_platform_cookies(url)
     
-    ydl_opts = {
+    ydl_opts: Dict[str, Any] = {
         'quiet': True,
         'no_warnings': True,
         'user_agent': random.choice(USER_AGENTS),
@@ -168,7 +168,27 @@ def get_video_info(url: str) -> Dict[str, Any]:
                 thumbnail = thumbnails[-1].get('url')
             
             uploader = info.get('uploader') or info.get('channel') or info.get('creator') or "Unknown"
+            
+            # Extract and validate numeric fields
             view_count = info.get('view_count')
+            like_count = info.get('like_count')
+            comment_count = info.get('comment_count')
+            tags = info.get('tags') or info.get('categories') or []
+            
+            # Validate numeric fields
+            if view_count is not None and view_count < 0:
+                logger.warning(f"Invalid view_count: {view_count}, setting to 0")
+                view_count = 0
+            if like_count is not None and like_count < 0:
+                logger.warning(f"Invalid like_count: {like_count}, setting to 0")
+                like_count = 0
+            if comment_count is not None and comment_count < 0:
+                logger.warning(f"Invalid comment_count: {comment_count}, setting to 0")
+                comment_count = 0
+            
+            # Detect impossible values
+            if view_count is not None and like_count is not None and like_count > view_count:
+                logger.warning(f"Like count ({like_count}) exceeds view count ({view_count})")
             
             result = {
                 "title": info.get('title') or "Untitled",
@@ -177,10 +197,13 @@ def get_video_info(url: str) -> Dict[str, Any]:
                 "formats": formats,
                 "original_url": url,
                 "uploader": uploader,
+                "tags": tags,
             }
             
-            if view_count:
-                result["views"] = view_count
+            # Add numeric fields only if present
+            if view_count is not None: result["views"] = view_count
+            if like_count is not None: result["like_count"] = like_count
+            if comment_count is not None: result["comment_count"] = comment_count
             
             upload_date = info.get('upload_date')
             if upload_date:
@@ -190,11 +213,26 @@ def get_video_info(url: str) -> Dict[str, Any]:
                 except:
                     pass
             
+            # Precise upload timestamp (epoch) for accurate VPH
+            # Prefer release_timestamp over timestamp for better accuracy
+            release_timestamp = info.get('release_timestamp')
+            timestamp = info.get('timestamp')
+            
+            if release_timestamp:
+                result['timestamp'] = release_timestamp
+                logger.info(f"Using release_timestamp: {release_timestamp}")
+            elif timestamp:
+                result['timestamp'] = timestamp
+                logger.info(f"Using timestamp: {timestamp}")
+            else:
+                logger.warning("No precise timestamp available, VPH will use upload_date (less accurate)")
+            
             description = info.get('description')
             if description:
-                result["description"] = description[:200] + "..." if len(description) > 200 else description
+                # Keep full description for analysis, don't truncate significantly
+                result["description"] = description[:5000] if len(description) > 5000 else description
             
-            logger.info(f"Successfully extracted: {result['title']} ({len(formats)} formats)")
+            logger.info(f"Successfully extracted: {result['title']} ({len(formats)} formats, {len(tags)} tags)")
             return result
             
     except yt_dlp.utils.DownloadError as e:

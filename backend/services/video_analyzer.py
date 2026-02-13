@@ -85,7 +85,7 @@ def _ctr_predictor(title: str, view_count: int, like_count: int) -> Tuple[float,
         label = "Low"
 
     reason = "Based on " + ", ".join(reasons) if reasons else "Standard title without standout hooks"
-    return round(score, 1), label, reason
+    return round(float(score), 1), label, reason  # type: ignore
 
 
 def _title_sentiment(title: str) -> str:
@@ -104,7 +104,7 @@ def _title_sentiment(title: str) -> str:
         "Fear of missing out": sum(1 for w in fear if w in t),
         "Excitement": sum(1 for w in excitement if w in t),
     }
-    best = max(scores, key=scores.get)
+    best = max(scores, key=scores.get)  # type: ignore
     return best if scores[best] > 0 else "Neutral / Informational"
 
 
@@ -124,7 +124,7 @@ def _thumbnail_title_alignment(title: str, tags: List[str]) -> float:
 def _hook_strength(title: str, description: str) -> float:
     """Score 0-10 based on opening hook signals."""
     score = 5.0
-    first_para = (description or "")[:300].lower()
+    first_para = (str(description) or "")[:300].lower()  # type: ignore
     hook_signals = ['watch', 'discover', 'find out', 'learn', 'today', 'in this video',
                     'join', 'we will', "you'll", 'how to', 'secret', 'never seen']
     matches = sum(1 for s in hook_signals if s in first_para)
@@ -135,7 +135,7 @@ def _hook_strength(title: str, description: str) -> float:
     if description and len(description) > 200:
         score += 0.7
 
-    return round(_clamp(score, 0, 10), 1)
+    return round(float(_clamp(score, 0, 10)), 1)  # type: ignore
 
 
 def compute_click_potential(title: str, description: str, tags: List[str],
@@ -171,7 +171,7 @@ def _keyword_density_map(title: str, description: str) -> float:
         return 20
     stop_words = {'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to',
                   'for', 'of', 'with', 'by', 'from', 'is', 'are', 'was', 'were'}
-    keywords = [w.lower() for w in title.split() if w.lower() not in stop_words and len(w) > 3][:7]
+    keywords = [w.lower() for w in title.split() if w.lower() not in stop_words and len(w) > 3][:7]  # type: ignore
     if not keywords:
         return 30
     desc_lower = description.lower()
@@ -184,34 +184,44 @@ def _description_structure_score(description: str) -> float:
     if not description:
         return 0
     score = 0
-    if len(description) >= 1000: score += 30
-    elif len(description) >= 500:  score += 20
-    elif len(description) >= 250:  score += 10
+    # Adjusted thresholds (more realistic)
+    if len(description) >= 600: score += 30
+    elif len(description) >= 350:  score += 20
+    elif len(description) >= 150:  score += 10
+    
     cta_words = ['subscribe', 'like', 'comment', 'share', 'follow', 'check out', 'click', 'visit']
     cta_count = sum(1 for w in cta_words if w in description.lower())
     score += min(cta_count * 8, 30)
+    
     if re.search(r'https?://', description): score += 10
+    
     timestamps = re.findall(r'\b\d{1,2}:\d{2}\b', description)
     if len(timestamps) >= 3: score += 20
     elif len(timestamps) >= 1: score += 10
+    
     hashtag_count = len(re.findall(r'#\w+', description))
     if 3 <= hashtag_count <= 15: score += 10
+    
     return round(_clamp(score))
 
 
 def _tag_quality_score(tags: List[str]) -> float:
     """Assess tag diversity and count. 0-100."""
     if not tags:
-        return 0
+        return 30  # Baseline score even without explicit tags (don't fail completely)
+        
     count = len(tags)
     lengths = [len(t.split()) for t in tags]
     short = any(l == 1 for l in lengths)
     medium = any(2 <= l <= 3 for l in lengths)
     long_tail = any(l > 3 for l in lengths)
+    
     diversity = sum([short, medium, long_tail])
     score = min(count * 4, 50) + diversity * 15
+    
     too_long = sum(1 for t in tags if len(t) > 30)
     score -= too_long * 5
+    
     return round(_clamp(score))
 
 
@@ -328,7 +338,7 @@ def _engagement_signal_density(description: str, view_count: int, like_count: in
         elif er >= 0.01: score += 0.5
         comment_rate = comment_count / view_count if comment_count else 0
         if comment_rate >= 0.005: score += 1
-    return round(_clamp(score, 0, 10), 1)
+    return round(float(_clamp(score, 0, 10)), 1)  # type: ignore
 
 
 def _drop_off_risk(duration_seconds: int, description: str) -> Tuple[str, float]:
@@ -346,7 +356,7 @@ def _drop_off_risk(duration_seconds: int, description: str) -> Tuple[str, float]
     if score >= 7: label = "Low Risk"
     elif score >= 5: label = "Medium Risk"
     else: label = "High Risk"
-    return label, round(score, 1)
+    return label, round(float(score), 1)  # type: ignore
 
 
 def _watch_time_optimization(duration_seconds: int, description: str) -> float:
@@ -399,14 +409,14 @@ def compute_retention(title: str, description: str, duration_seconds: int,
 
 def _emotional_intensity_index(title: str, description: str) -> float:
     """Detect emotional intensity in text. 0-10."""
-    text = (title + " " + (description or "")[:500]).lower()
+    text = (title + " " + (str(description) or "")[:500]).lower()  # type: ignore
     emotional_words = [
         'amazing', 'incredible', 'shocking', 'unbelievable', 'mind-blowing', 'epic',
         'hate', 'love', 'fear', 'angry', 'excited', 'hilarious', 'sad', 'beautiful',
         'terrifying', 'surprising', 'emotional', 'powerful', 'inspiring',
     ]
     matches = sum(1 for w in emotional_words if w in text)
-    return round(_clamp(3 + matches * 0.7, 0, 10), 1)
+    return round(float(_clamp(3 + matches * 0.7, 0, 10)), 1)  # type: ignore
 
 
 def _shareability_score(title: str, description: str, tags: List[str],
@@ -414,7 +424,7 @@ def _shareability_score(title: str, description: str, tags: List[str],
     """How shareable is this content? 0-100."""
     score = 40
     share_hooks = ['share', 'must see', 'watch this', 'everyone', 'viral', 'funny', 'amazing']
-    text = (title + " " + (description or "")[:300]).lower()
+    text = (title + " " + (str(description) or "")[:300]).lower()  # type: ignore
     score += sum(min(5, 1) for w in share_hooks if w in text) * 5
 
     if view_count > 0:
@@ -432,7 +442,7 @@ def _shareability_score(title: str, description: str, tags: List[str],
 def _trend_alignment_score(title: str, tags: List[str]) -> float:
     """Check for trending topic signals in title and tags. 0-100."""
     trend_signals = [
-        '2024', '2025', 'new', 'latest', 'trending', 'viral', 'react', 'reaction',
+        '2025', '2026', 'new', 'latest', 'trending', 'viral', 'react', 'reaction',
         'ai', 'chatgpt', 'shorts', 'fyp', 'challenge', '#shorts',
     ]
     text = (title + " " + " ".join(tags or [])).lower()
@@ -442,11 +452,11 @@ def _trend_alignment_score(title: str, tags: List[str]) -> float:
 
 def _controversy_meter(title: str, description: str) -> float:
     """Estimate controversy level. 0-10. Mid-range is best for engagement."""
-    text = (title + " " + (description or "")[:300]).lower()
+    text = (title + " " + (str(description) or "")[:300]).lower()  # type: ignore
     controversy_words = ['vs', 'debate', 'controversial', 'truth', 'expose', 'wrong',
                          'disagree', 'myth', 'lie', 'real', 'fake', 'unpopular opinion']
     matches = sum(1 for w in controversy_words if w in text)
-    return round(_clamp(2 + matches * 0.8, 0, 10), 1)
+    return round(float(_clamp(2 + matches * 0.8, 0, 10)), 1)  # type: ignore
 
 
 def compute_virality(title: str, description: str, tags: List[str],
@@ -513,16 +523,23 @@ def _metadata_completeness(title: str, description: str, tags: List[str],
     return round(_clamp(score))
 
 
-def _upload_timing_score(upload_date: str) -> Tuple[str, float]:
-    """Estimate upload timing quality from upload_date string. 0-100."""
-    # We can only analyse what yt-dlp returns; it's often a 'YYYYMMDD' string
+def _upload_timing_score(upload_date: str, timestamp: float = 0) -> Tuple[str, float]:
+    """Estimate upload timing quality. 0-100."""
     score = 65  # default neutral
     label = "Unknown timing"
-    if not upload_date:
-        return label, score
+    
     try:
         from datetime import datetime
-        dt = datetime.strptime(str(upload_date), "%Y%m%d")
+        
+        # Prefer precise timestamp over date-only
+        if timestamp and timestamp > 0:
+            dt = datetime.fromtimestamp(timestamp)
+        elif upload_date:
+            # Fallback to upload_date (YYYY-MM-DD format)
+            dt = datetime.strptime(upload_date, "%Y-%m-%d")
+        else:
+            return label, score
+        
         weekday = dt.weekday()  # 0=Mon, 6=Sun
         hour = dt.hour
 
@@ -553,10 +570,10 @@ def _upload_timing_score(upload_date: str) -> Tuple[str, float]:
 
 
 def compute_technical(title: str, description: str, tags: List[str],
-                       duration_seconds: int, upload_date: str, view_count: int) -> Dict:
+                       duration_seconds: int, upload_date: str, view_count: int, timestamp: float = 0) -> Dict:
     length_opt = _video_length_optimization(duration_seconds)
     metadata = _metadata_completeness(title, description, tags, view_count)
-    timing_label, timing_score = _upload_timing_score(upload_date)
+    timing_label, timing_score = _upload_timing_score(upload_date, timestamp)
 
     master = round((length_opt + metadata + timing_score) / 3)
     return {
@@ -626,8 +643,8 @@ def _curiosity_gap_score(title: str, description: str) -> float:
     gap_signals = ['secret', 'truth', 'why', 'how', 'what nobody tells', 'hidden',
                    '?', 'you didn\'t know', 'surprising', 'revealed', 'shocked']
     matches = sum(1 for s in gap_signals if s in t)
-    desc_bonus = 1 if description and any(w in description[:200].lower() for w in ['find out', 'learn why', 'discover']) else 0
-    return round(_clamp(3 + matches * 1.5 + desc_bonus, 0, 10), 1)
+    desc_bonus = 1 if description and any(w in str(description)[:200].lower() for w in ['find out', 'learn why', 'discover']) else 0  # type: ignore
+    return round(float(_clamp(3 + matches * 1.5 + desc_bonus, 0, 10)), 1)  # type: ignore
 
 
 def _authority_signals(title: str, description: str, tags: List[str],
@@ -636,7 +653,7 @@ def _authority_signals(title: str, description: str, tags: List[str],
     score = 40
     authority_words = ['expert', 'professional', 'years', 'certified', 'proven',
                        'research', 'study', 'data', 'science', 'official']
-    text = (title + " " + (description or "")[:500]).lower()
+    text = (title + " " + (str(description) or "")[:500]).lower()  # type: ignore
     score += sum(3 for w in authority_words if w in text)
     if view_count > 100000: score += 20
     elif view_count > 10000: score += 10
@@ -649,7 +666,7 @@ def _relatability_index(title: str, description: str) -> float:
     score = 50
     relatable = ['you', 'your', 'we', 'our', 'everyone', 'people like', 'feel',
                  'ever wanted', 'have you', 'struggle', 'simple', 'easy', 'anyone']
-    text = (title + " " + (description or "")[:500]).lower()
+    text = (title + " " + (str(description) or "")[:500]).lower()  # type: ignore
     matches = sum(1 for w in relatable if w in text)
     score += min(matches * 4, 30)
     return round(_clamp(score))
@@ -693,14 +710,14 @@ def _cta_strength_score(description: str) -> float:
 def _subscription_trigger_score(title: str, description: str) -> float:
     """How strongly does the content motivate subscription? 0-10."""
     score = 4.0
-    text = (title + " " + (description or "")[:500]).lower()
+    text = (title + " " + (str(description) or "")[:500]).lower()  # type: ignore
     sub_triggers = ['subscribe', 'hit the bell', 'turn on notifications',
                     'join', 'become a member', 'every week', 'every day',
                     'more videos', 'series', 'part 2', 'stay tuned', 'don\'t miss']
     matches = sum(1 for t in sub_triggers if t in text)
     score += min(matches * 0.7, 3.5)
     if 'subscribe' in text: score += 1.5
-    return round(_clamp(score, 0, 10), 1)
+    return round(float(_clamp(score, 0, 10)), 1)  # type: ignore
 
 
 def compute_cta_analysis(title: str, description: str) -> Dict:
@@ -768,7 +785,7 @@ def _generate_recommendations(
         add("high", "Too Many Hashtags",
             f"You have {metadata['hashtag_count']} hashtags — YouTube ignores ALL hashtags when you use more than 15. Keep it to 3-8.")
 
-    return recs[:8]  # max 8 recs
+    return recs[:8]  # max 8 recs  # type: ignore
 
 
 # ─────────────────────────────────────────────
@@ -787,6 +804,121 @@ def get_letter_grade(score: float) -> str:
 
 
 # ─────────────────────────────────────────────
+#  REALITY CHECK & INSIGHTS
+# ─────────────────────────────────────────────
+
+def _calculate_vph(view_count: int, upload_date: str, timestamp: float = 0) -> float:
+    """Calculate Views Per Hour (VPH)."""
+    if not view_count:
+        return 0.0
+    try:
+        from datetime import datetime
+        now = datetime.now()
+        
+        if timestamp and timestamp > 0:
+             # Use precise timestamp if available
+            upload_dt = datetime.fromtimestamp(timestamp)
+        elif upload_date:
+            # Fallback to date-only (inherently inaccurate for <24h videos)
+            upload_dt = datetime.strptime(upload_date, "%Y-%m-%d")
+        else:
+            return 0.0
+
+        age_hours = (now - upload_dt).total_seconds() / 3600
+        if age_hours < 0.1: return float(view_count) # Just uploaded
+        return round(float(view_count / age_hours), 1)  # type: ignore
+    except:
+        return 0.0
+
+def _apply_reality_check(
+    scores: Dict[str, Any], 
+    vph: float, 
+    view_count: int, 
+    like_count: int
+) -> Dict[str, Any]:
+    """
+    Adjust scores based on REAL performance.
+    If a video is viral (High VPH), it IS good, regardless of heuristics.
+    """
+    boosts = []
+    
+    # High VPH = High Click Potential & Virality
+    if vph > 1000:
+        scores['click_potential']['master_score'] = max(scores['click_potential']['master_score'], 90)
+        scores['virality']['master_score'] = max(scores['virality']['master_score'], 95)
+        boosts.append("🚀 Viral Velocity (High VPH) boosted Click & Viral scores")
+    elif vph > 100:
+        scores['click_potential']['master_score'] = max(scores['click_potential']['master_score'], 80)
+        scores['virality']['master_score'] = max(scores['virality']['master_score'], 85)
+        boosts.append("📈 Strong Performance (Good VPH) boosted scores")
+
+    # High Engagement = High Retention
+    if view_count > 0:
+        engagement_rate = like_count / view_count
+        if engagement_rate > 0.10: # 10% likes is insane
+            scores['retention']['master_score'] = max(scores['retention']['master_score'], 90)
+            boosts.append("❤️ Massive Engagement (10%+) boosted Retention score")
+        elif engagement_rate > 0.05:
+            scores['retention']['master_score'] = max(scores['retention']['master_score'], 80)
+            boosts.append("👍 High Engagement (5%+) boosted Retention score")
+
+    return {"boosts": boosts}
+
+
+# ─────────────────────────────────────────────
+#  DATA VALIDATION
+#  ─────────────────────────────────────────────
+
+def _validate_video_data(video_data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Validate and sanitize video data before analysis.
+    Returns dict with validated data, errors, and warnings.
+    """
+    errors = []
+    warnings = []
+    
+    # Required fields
+    if not video_data.get("title"):
+        errors.append("Missing title")
+    
+    # Numeric validations
+    views = video_data.get("views", 0)
+    if views < 0:
+        warnings.append(f"Invalid view count: {views}, setting to 0")
+        video_data["views"] = 0
+    
+    likes = video_data.get("like_count", 0)
+    comments = video_data.get("comment_count", 0)
+    
+    # Detect impossible values
+    if likes > views and views > 0:
+        warnings.append(f"Likes ({likes}) exceed views ({views}) - data may be stale")
+    
+    # Duration validation
+    duration = video_data.get("duration", 0)
+    if duration <= 0:
+        warnings.append("Invalid or missing duration - some metrics will be inaccurate")
+    
+    # Timestamp validation
+    timestamp = video_data.get("timestamp", 0)
+    if timestamp:
+        from datetime import datetime
+        now_ts = datetime.now().timestamp()
+        if timestamp > now_ts:
+            warnings.append("Upload timestamp is in the future - using upload_date instead")
+            video_data["timestamp"] = 0
+        elif timestamp < 946684800:  # Before year 2000
+            warnings.append("Upload timestamp seems too old - may be incorrect")
+    
+    return {
+        "data": video_data,
+        "errors": errors,
+        "warnings": warnings,
+        "is_valid": len(errors) == 0
+    }
+
+
+# ─────────────────────────────────────────────
 #  MAIN ENTRY POINT
 # ─────────────────────────────────────────────
 
@@ -795,70 +927,97 @@ def analyze_video_comprehensive(url: str) -> Dict[str, Any]:
     Full video analysis — returns all 5 master scores + 31 sub-metrics.
     Compatible with the analyzer/page.tsx frontend.
     """
-    from services.scraper import get_video_info
+    from services.scraper import get_video_info  # type: ignore
+    from datetime import datetime # Added for _calculate_vph
+    import re # Added for hashtag/timestamp count
 
     video_data = get_video_info(url)
     if "error" in video_data:
-        return video_data
+        return {"error": video_data["error"]}
+    
+    # Validate data integrity
+    validation = _validate_video_data(video_data)
+    if not validation["is_valid"]:
+        return {"error": f"Data validation failed: {', '.join(validation['errors'])}"}
+    
+    # Log warnings but continue
+    if validation["warnings"]:
+        import logging
+        logger = logging.getLogger(__name__)
+        for warning in validation["warnings"]:
+            logger.warning(f"[{url}] {warning}")
+    
+    # Use validated data
+    video_data = validation["data"]
 
     # ── Extract raw fields ──────────────────────────────────────────────
     title         = video_data.get("title", "")
-    description   = video_data.get("description", "") or ""
-    tags          = video_data.get("tags", []) or []
-    view_count    = int(video_data.get("view_count", 0) or 0)
-    like_count    = int(video_data.get("like_count", 0) or 0)
-    comment_count = int(video_data.get("comment_count", 0) or 0)
-    duration_sec  = int(video_data.get("duration", 0) or 0)
-    upload_date   = video_data.get("upload_date", "") or ""
+    desc          = video_data.get("description", "") or ""
+    tags          = video_data.get("tags", []) or [] # Ensure list
+    views         = int(video_data.get("views", 0) or 0) # Changed from "view_count" to "views"
+    likes         = int(video_data.get("like_count", 0) or 0)
+    comments      = int(video_data.get("comment_count", 0) or 0)
+    duration      = int(video_data.get("duration", 0) or 0)
+    upload_date   = video_data.get("upload_date", "") or "" # YYYY-MM-DD
     thumbnail     = video_data.get("thumbnail", "")
     uploader      = video_data.get("uploader", video_data.get("channel", "Unknown"))
     platform      = video_data.get("platform", "YouTube")
+    timestamp     = video_data.get("timestamp", 0) # Precise upload time
+
+    # ── Calculate Insights ──────────────────────────────────────────────
+    vph = _calculate_vph(views, upload_date, timestamp)
+    
+    # Engagement metrics (separate for transparency)
+    like_rate = 0.0
+    comment_rate = 0.0
+    total_engagement_rate = 0.0
+    
+    if views > 0:
+        like_rate = round(float(likes / views * 100), 2)  # type: ignore  # VidIQ standard
+        comment_rate = round(float(comments / views * 100), 2)  # type: ignore
+        total_engagement_rate = round(float((likes + comments) / views * 100), 2)  # type: ignore  # Our comprehensive metric
 
     # ── Run all 6 section analyses ──────────────────────────────────────
-    click     = compute_click_potential(title, description, tags, view_count, like_count)
-    seo       = compute_seo_strength(title, description, tags)
-    retention = compute_retention(title, description, duration_sec, view_count, like_count, comment_count)
-    viral     = compute_virality(title, description, tags, view_count, like_count, comment_count)
-    technical = compute_technical(title, description, tags, duration_sec, upload_date, view_count)
-    cta       = compute_cta_analysis(title, description)
-    competitive = compute_competitive(title, description, tags, duration_sec)
-    psychology  = compute_audience_psychology(title, description, tags, view_count, like_count)
+    click     = compute_click_potential(title, desc, tags, views, likes)
+    seo       = compute_seo_strength(title, desc, tags)
+    retention = compute_retention(title, desc, duration, views, likes, comments)
+    viral     = compute_virality(title, desc, tags, views, likes, comments)
+    technical = compute_technical(title, desc, tags, duration, upload_date, views, timestamp)
+    cta       = compute_cta_analysis(title, desc)
+    competitive = compute_competitive(title, desc, tags, duration)
+    psychology  = compute_audience_psychology(title, desc, tags, views, likes)
+
+    # 🚨 REALITY CHECK: Adjust scores based on VPH/Engagement
+    # The user wants "Authentic", so real stats should override theory.
+    scores_map = {
+        "click_potential": click,
+        "virality": viral,
+        "retention": retention
+    }
+    reality_check_info = _apply_reality_check(scores_map, vph, views, likes)
 
     # ── Overall score ───────────────────────────────────────────────────
-    weights = {
-        "click":       0.20,
-        "seo":         0.25,
-        "retention":   0.20,
-        "viral":       0.10,
-        "technical":   0.15,
-        "cta":         0.05,
-        "competitive": 0.03,
-        "psychology":  0.02,
-    }
+    # Updated weights, competitive and psychology removed from overall score
     overall_score = round(
-        click["master_score"]       * weights["click"] +
-        seo["master_score"]         * weights["seo"] +
-        retention["master_score"]   * weights["retention"] +
-        viral["master_score"]       * weights["viral"] +
-        technical["master_score"]   * weights["technical"] +
-        cta["master_score"]         * weights["cta"] +
-        competitive["master_score"] * weights["competitive"] +
-        psychology["master_score"]  * weights["psychology"]
+        click["master_score"]       * 0.25 +
+        retention["master_score"]   * 0.30 +
+        seo["master_score"]         * 0.15 +
+        viral["master_score"]       * 0.20 +
+        technical["master_score"]   * 0.10
     )
 
-    engagement_rate = round((like_count / view_count * 100), 2) if view_count > 0 else 0
-
-    hashtag_count = len(re.findall(r'#\w+', description))
-    timestamp_count = len(re.findall(r'\b\d{1,2}:\d{2}\b', description))
+    hashtag_count = len(re.findall(r'#\w+', desc))
+    timestamp_count = len(re.findall(r'\b\d{1,2}:\d{2}\b', desc))
 
     metadata_summary = {
         "tag_count":          len(tags),
-        "description_length": len(description),
+        "description_length": len(desc),
         "hashtag_count":      hashtag_count,
         "timestamp_count":    timestamp_count,
     }
 
     # ── Compile the full metrics object (matches frontend expectations) ──
+    # This section is updated to match the new structure and fields
     full_metrics = {
         # Title / Click
         "title_score":       round(click["sub_metrics"]["title_performance_score"] / 10, 1),
@@ -868,13 +1027,13 @@ def analyze_video_comprehensive(url: str) -> Dict[str, Any]:
         "title_sentiment":   click["sub_metrics"]["title_sentiment"],
         "hook_strength":     click["sub_metrics"]["hook_strength"],
         "main_keyword":      seo["main_keyword"],
-        "keyword_position":  seo["keyword_position"],
+        "keyword_position":  seo.get("keyword_position", ""),
 
         # SEO
         "seo_overall":       round(seo["master_score"]),
         "keyword_score":     round(seo["sub_metrics"]["keyword_density_map"] / 10, 1),
         "tag_count":         len(tags),
-        "description_length": len(description),
+        "description_length": len(desc),
         "description_score": round(seo["sub_metrics"]["description_structure_score"] / 10, 1),
         "tag_score":         round(seo["sub_metrics"]["tag_quality_score"] / 10, 1),
 
@@ -909,12 +1068,17 @@ def analyze_video_comprehensive(url: str) -> Dict[str, Any]:
         "thumbnail":        thumbnail,
         "uploader":         uploader,
         "platform":         platform,
-        "duration":         duration_sec,
-        "views":            view_count,
-        "view_count":       view_count,
-        "like_count":       like_count,
-        "comment_count":    comment_count,
-        "engagement_rate":  engagement_rate,
+        "duration":         duration,
+        "views":            views,
+        "view_count":       views,
+        "like_count":       likes,
+        "comment_count":    comments,
+        "like_rate":        like_rate,           # VidIQ standard: likes/views
+        "comment_rate":     comment_rate,        # comments/views
+        "engagement_rate":  total_engagement_rate,  # Comprehensive: (likes+comments)/views
+        "upload_date":      upload_date, # Added
+        "vph":              vph,         # Added
+        "tags":             tags,        # Added, renamed from video_tags
 
         # ── Score ───────────────────────────────────────────────────────
         "overall_score":    overall_score,
