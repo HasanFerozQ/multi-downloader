@@ -1,21 +1,38 @@
 import uuid, asyncio, json, redis, os, re  # type: ignore
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, HTTPException, BackgroundTasks  # type: ignore
 from fastapi.middleware.cors import CORSMiddleware  # type: ignore
-from fastapi.responses import FileResponse  # type: ignore
+from fastapi.responses import FileResponse, JSONResponse  # type: ignore
 from slowapi import Limiter  # type: ignore
 from slowapi.util import get_remote_address  # type: ignore
 from worker import download_video_task   # type: ignore
 from services.scraper import get_video_info  # type: ignore
 from services.video_analyzer import analyze_video_comprehensive  # type: ignore
+from dotenv import load_dotenv
 
+load_dotenv()
 
 app = FastAPI(title="Pro StreamDown API")
-r = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)
+
+from routers import convert_router, feedback_router
+app.include_router(convert_router.router)
+app.include_router(feedback_router.router)
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal Server Error", "error": str(exc)},
+    )
+
+REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+r = redis.from_url(REDIS_URL, decode_responses=True)
 limiter = Limiter(key_func=get_remote_address)
+
+origins = os.getenv("CORS_ORIGINS", "*").split(",")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure your frontend domain in production
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -24,19 +41,16 @@ app.add_middleware(
 # Ensure temp directory exists on startup
 os.makedirs("temp_downloads", exist_ok=True)
 
-# --- INPUT VALIDATION ---
-SUPPORTED_DOMAINS = [
-    r"(youtube\.com|youtu\.be)",
-    r"(twitter\.com|x\.com)",
-    r"(tiktok\.com)",
-    r"(facebook\.com|fb\.watch)",
-    r"(instagram\.com)"
-]
+from services.validators import validate_url, sanitize_input
 
-def validate_url(url: str):
+# --- INPUT VALIDATION ---
+# Moved to services/validators.py
+
+def validate_url_dependency(url: str):
     """Ensure the URL belongs to a supported platform"""
-    if not any(re.search(pattern, url) for pattern in SUPPORTED_DOMAINS):
+    if not validate_url(url):
         raise HTTPException(status_code=400, detail="Unsupported platform. Please use YouTube, X, TikTok, FB, or IG.")
+    return sanitize_input(url)
 
 @app.get("/")
 async def root():
@@ -78,7 +92,18 @@ async def check_status(task_id: str):
     result = download_video_task.AsyncResult(task_id)
     
     if result.state == 'PENDING':
-        return {"status": "queued", "progress": 0}
+        # Estimate queue position (simple FIFO approximation)
+        # In a real production app with Celery, accurate position is hard.
+        # We'll calculate it by counting how many tasks are unresolved in our specific Redis tracking if we had one.
+        # For now, we'll return a generic "Waiting in queue" message, or if possible,
+        # we can check Redis queue length.
+        try:
+            # Celery default queue is 'celery'
+            queue_len = r.llen("celery")
+            return {"status": "queued", "progress": 0, "queue_position": queue_len if queue_len else 1}
+        except:
+            return {"status": "queued", "progress": 0}
+            
     elif result.state == 'PROGRESS':
         return {"status": "downloading", **result.info}
     elif result.state == 'SUCCESS':

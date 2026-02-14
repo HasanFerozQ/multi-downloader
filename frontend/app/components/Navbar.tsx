@@ -9,7 +9,7 @@ export default function Navbar() {
   const navItems = [
     { name: "Video Analyzer", path: "/", icon: <BarChart3 size={18} /> },  // NEW HOMEPAGE
     { name: "5-in-1 Downloader", path: "/downloader", icon: <Download size={18} /> },  // MOVED
-    { name: "Transcriber", path: "/transcriber", icon: <Languages size={18} /> },
+    { name: "Convertors", path: "/convertors", icon: <Languages size={18} /> },
   ];
 
   return (
@@ -27,9 +27,8 @@ export default function Navbar() {
             <Link
               key={item.path}
               href={item.path}
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold uppercase transition-all ${
-                pathname === item.path ? "bg-blue-600 text-white shadow-lg" : "text-slate-400 hover:text-white"
-              }`}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold uppercase transition-all ${pathname === item.path ? "bg-blue-600 text-white shadow-lg" : "text-slate-400 hover:text-white"
+                }`}
             >
               {item.icon}
               <span className="hidden sm:inline">{item.name}</span>

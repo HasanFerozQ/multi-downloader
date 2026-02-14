@@ -6,6 +6,8 @@ import Navbar from "@/components/Navbar";
 import AdPillar from "@/components/AdPillar";
 import FooterAd from "@/components/FooterAd";
 import Footer from "@/components/Footer";
+import DonationSection from "@/components/DonationSection";
+import FeedbackWidget from "@/components/FeedbackWidget";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -27,19 +29,26 @@ export default function RootLayout({
 
         {/* Main Layout with Ad Pillars */}
         <div className="relative flex-1">
-          
+
           {/* LEFT AD PILLAR - Only on xl screens */}
           <AdPillar side="left" />
-          
+
           {/* RIGHT AD PILLAR - Only on xl screens */}
           <AdPillar side="right" />
-          
+
           {/* MAIN CONTENT AREA - Tools stay centered and ad-free */}
           <main className="pt-16 pb-8">
             {children}
           </main>
 
         </div>
+
+
+        {/* DONATION SECTION */}
+        <DonationSection />
+
+        {/* FEEDBACK WIDGET */}
+        <FeedbackWidget />
 
         {/* FOOTER AD - PropellerAds */}
         <FooterAd />

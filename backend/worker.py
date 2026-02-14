@@ -8,9 +8,12 @@ except ImportError:
 
 from celery import Celery
 
+from dotenv import load_dotenv
+load_dotenv()
+
 celery = Celery('worker', 
-                broker='redis://localhost:6379/0', 
-                backend='redis://localhost:6379/0')
+                broker=os.getenv("REDIS_URL", "redis://localhost:6379/0"), 
+                backend=os.getenv("REDIS_URL", "redis://localhost:6379/0"))
 
 def get_ffmpeg_location():
     """

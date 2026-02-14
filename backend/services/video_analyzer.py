@@ -1,5 +1,6 @@
 import re
 from typing import Dict, List, Tuple, Any
+from services import analyzer_config as C
 
 
 # ─────────────────────────────────────────────
@@ -25,55 +26,57 @@ def _title_performance_score(title: str) -> float:
     """Score 0-100 based on length, power words, numbers, structure."""
     if not title:
         return 0
-    score = 50  # baseline
+    score = C.CLICK_POTENTIAL["BASELINE_SCORE"]
 
     length = len(title)
-    if 40 <= length <= 60:
-        score += 20
-    elif 30 <= length < 40 or 60 < length <= 70:
-        score += 10
+    if C.CLICK_POTENTIAL["IDEAL_LENGTH_MIN"] <= length <= C.CLICK_POTENTIAL["IDEAL_LENGTH_MAX"]:
+        score += C.CLICK_POTENTIAL["LENGTH_BONUS"]
+    elif 30 <= length < C.CLICK_POTENTIAL["IDEAL_LENGTH_MIN"] or C.CLICK_POTENTIAL["IDEAL_LENGTH_MAX"] < length <= 70:
+        score += C.CLICK_POTENTIAL["OK_LENGTH_BONUS"]
     elif length < 30:
-        score -= 15
+        score -= C.CLICK_POTENTIAL["SHORT_PENALTY"]
     else:  # >70, truncated
-        score -= 5
+        score -= C.CLICK_POTENTIAL["LONG_PENALTY"]
 
-    power_words = [
-        'best', 'top', 'ultimate', 'complete', 'guide', 'how to', 'tutorial',
-        'review', 'vs', 'new', 'secret', 'proven', 'easy', 'fast', 'simple',
-        'free', 'now', 'today', 'instantly', 'tips', 'tricks', 'hack', 'winning',
-    ]
+    power_words = C.CLICK_POTENTIAL["POWER_WORDS"]
     matches = sum(1 for w in power_words if w in title.lower())
-    score += min(matches * 7, 21)
+    score += min(matches * C.CLICK_POTENTIAL["POWER_WORD_BONUS"], C.CLICK_POTENTIAL["POWER_WORD_MAX"])
 
     if re.search(r'\d+', title):
-        score += 9
+        score += C.CLICK_POTENTIAL["NUMBER_BONUS"]
 
     return round(_clamp(score))
 
 
 def _ctr_predictor(title: str, view_count: int, like_count: int) -> Tuple[float, str, str]:
     """Returns (score_0_10, label, reason)."""
-    score = 5.0
+    score = C.CTR_PREDICTOR["BASE_SCORE"]
     reasons = []
 
     if len(title) >= 30:
-        score += 1
+        score += C.CTR_PREDICTOR["LENGTH_BONUS"]
         reasons.append("good title length")
-    power_words = ['how to', 'best', 'top', 'secret', 'ultimate', 'guide', 'tips', 'tricks']
+    power_words = ['how to', 'best', 'top', 'secret', 'ultimate', 'guide', 'tips', 'tricks'] # Keep local list or move? Config has list but might differ. Config list is HUGE. Let's keep usage consistent or use config? The config `POWER_WORDS` is for title perf. Let's use the local list for now or careful check. 
+    # Actually, let's use the list from config but it might be too big for this specific check? 
+    # The original code had a smaller list here. I should probably stick to the original list or use a subset from config.
+    # To change as little as possible, I will keep the list here or add a new one in config.
+    # Config `CTR_PREDICTOR` does not have a list? Wait. 
+    # I didn't add a specific list for CTR in config. I'll stick to the hardcoded list here for safety as per "exact logic" requirement, unless I want to change it.
+    # Let's keep the hardcoded list here to be SAFE on "authenticity".
     if any(w in title.lower() for w in power_words):
-        score += 1.5
+        score += C.CTR_PREDICTOR["POWER_WORD_BONUS"]
         reasons.append("power words present")
     if re.search(r'\d+', title):
-        score += 0.8
+        score += C.CTR_PREDICTOR["NUMBER_BONUS"]
         reasons.append("numbers in title")
     if '?' in title or '!' in title:
-        score += 0.7
+        score += C.CTR_PREDICTOR["EMOTIONAL_PUNCTUATION_BONUS"]
         reasons.append("emotional punctuation")
 
     if view_count > 0:
         er = like_count / view_count
-        if er >= 0.05: score += 1
-        elif er >= 0.02: score += 0.5
+        if er >= C.CTR_PREDICTOR["ENGAGEMENT_RATE_HIGH"]: score += C.CTR_PREDICTOR["ENGAGEMENT_BONUS_HIGH"]
+        elif er >= C.CTR_PREDICTOR["ENGAGEMENT_RATE_MED"]: score += C.CTR_PREDICTOR["ENGAGEMENT_BONUS_MED"]
 
     score = _clamp(score, 0, 10)
 
@@ -118,22 +121,22 @@ def _thumbnail_title_alignment(title: str, tags: List[str]) -> float:
         if any(w in title_words for w in tag.lower().split())
     )
     ratio = matches / max(len(tags), 1)
-    return round(_clamp(40 + ratio * 60))
+    # 40 + ratio * 60
+    return round(_clamp(C.THUMBNAIL_ALIGNMENT["BASELINE"] + ratio * C.THUMBNAIL_ALIGNMENT["MATCH_MULTIPLIER"]))
 
 
 def _hook_strength(title: str, description: str) -> float:
     """Score 0-10 based on opening hook signals."""
-    score = 5.0
+    score = C.HOOK_STRENGTH["BASE_SCORE"]
     first_para = (str(description) or "")[:300].lower()  # type: ignore
-    hook_signals = ['watch', 'discover', 'find out', 'learn', 'today', 'in this video',
-                    'join', 'we will', "you'll", 'how to', 'secret', 'never seen']
+    hook_signals = C.HOOK_STRENGTH["SIGNALS"]
     matches = sum(1 for s in hook_signals if s in first_para)
-    score += min(matches * 0.5, 2.5)
+    score += min(matches * C.HOOK_STRENGTH["SIGNAL_BONUS"], C.HOOK_STRENGTH["SIGNAL_MAX"])
 
     if title and any(c in title for c in ['?', '!']):
-        score += 0.8
+        score += C.HOOK_STRENGTH["PUNCTUATION_BONUS"]
     if description and len(description) > 200:
-        score += 0.7
+        score += C.HOOK_STRENGTH["DESC_LENGTH_BONUS"]
 
     return round(float(_clamp(score, 0, 10)), 1)  # type: ignore
 
@@ -167,16 +170,15 @@ def compute_click_potential(title: str, description: str, tags: List[str],
 
 def _keyword_density_map(title: str, description: str) -> float:
     """How well do title keywords saturate the description? 0-100."""
-    if not description or len(description) < 50:
-        return 20
-    stop_words = {'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to',
-                  'for', 'of', 'with', 'by', 'from', 'is', 'are', 'was', 'were'}
+    if not description or len(description) < C.KEYWORD_DENSITY["MIN_DESC_LEN"]:
+        return C.KEYWORD_DENSITY["BASELINE_LOW"]
+    stop_words = C.KEYWORD_DENSITY["STOP_WORDS"]
     keywords = [w.lower() for w in title.split() if w.lower() not in stop_words and len(w) > 3][:7]  # type: ignore
     if not keywords:
-        return 30
+        return C.KEYWORD_DENSITY["BASELINE_EMPTY"]
     desc_lower = description.lower()
     density = sum(desc_lower.count(kw) for kw in keywords)
-    return round(_clamp(20 + density * 8))
+    return round(_clamp(C.KEYWORD_DENSITY["BASELINE_LOW"] + density * C.KEYWORD_DENSITY["DENSITY_MULTIPLIER"]))
 
 
 def _description_structure_score(description: str) -> float:
@@ -185,22 +187,22 @@ def _description_structure_score(description: str) -> float:
         return 0
     score = 0
     # Adjusted thresholds (more realistic)
-    if len(description) >= 600: score += 30
-    elif len(description) >= 350:  score += 20
-    elif len(description) >= 150:  score += 10
+    if len(description) >= 600: score += C.DESCRIPTION_STRUCTURE["LEN_600_BONUS"]
+    elif len(description) >= 350:  score += C.DESCRIPTION_STRUCTURE["LEN_350_BONUS"]
+    elif len(description) >= 150:  score += C.DESCRIPTION_STRUCTURE["LEN_150_BONUS"]
     
-    cta_words = ['subscribe', 'like', 'comment', 'share', 'follow', 'check out', 'click', 'visit']
+    cta_words = C.DESCRIPTION_STRUCTURE["CTA_WORDS"]
     cta_count = sum(1 for w in cta_words if w in description.lower())
-    score += min(cta_count * 8, 30)
+    score += min(cta_count * C.DESCRIPTION_STRUCTURE["CTA_MULTIPLIER"], C.DESCRIPTION_STRUCTURE["CTA_MAX"])
     
-    if re.search(r'https?://', description): score += 10
+    if re.search(r'https?://', description): score += C.DESCRIPTION_STRUCTURE["LINK_BONUS"]
     
     timestamps = re.findall(r'\b\d{1,2}:\d{2}\b', description)
-    if len(timestamps) >= 3: score += 20
-    elif len(timestamps) >= 1: score += 10
+    if len(timestamps) >= 3: score += C.DESCRIPTION_STRUCTURE["TIMESTAMPS_3_BONUS"]
+    elif len(timestamps) >= 1: score += C.DESCRIPTION_STRUCTURE["TIMESTAMPS_1_BONUS"]
     
     hashtag_count = len(re.findall(r'#\w+', description))
-    if 3 <= hashtag_count <= 15: score += 10
+    if 3 <= hashtag_count <= 15: score += C.DESCRIPTION_STRUCTURE["HASHTAG_RANGE_BONUS"]
     
     return round(_clamp(score))
 
@@ -208,7 +210,7 @@ def _description_structure_score(description: str) -> float:
 def _tag_quality_score(tags: List[str]) -> float:
     """Assess tag diversity and count. 0-100."""
     if not tags:
-        return 30  # Baseline score even without explicit tags (don't fail completely)
+        return C.TAG_QUALITY["BASELINE"]
         
     count = len(tags)
     lengths = [len(t.split()) for t in tags]
@@ -217,10 +219,10 @@ def _tag_quality_score(tags: List[str]) -> float:
     long_tail = any(l > 3 for l in lengths)
     
     diversity = sum([short, medium, long_tail])
-    score = min(count * 4, 50) + diversity * 15
+    score = min(count * C.TAG_QUALITY["COUNT_MULTIPLIER"], C.TAG_QUALITY["COUNT_MAX"]) + diversity * C.TAG_QUALITY["DIVERSITY_BONUS"]
     
     too_long = sum(1 for t in tags if len(t) > 30)
-    score -= too_long * 5
+    score -= too_long * C.TAG_QUALITY["TOO_LONG_PENALTY"]
     
     return round(_clamp(score))
 
@@ -239,13 +241,13 @@ def _searchability_index(title: str, description: str, tags: List[str]) -> float
 def _keyword_difficulty(title: str) -> Tuple[float, str]:
     """Estimate keyword competitiveness from title. 0-100."""
     t = title.lower()
-    high_comp = ['how to', 'tutorial', 'review', 'best', 'top 10', 'vs', 'guide']
-    low_comp = ['my experience', 'vlog', 'story', 'reaction', 'behind the scenes']
+    high_comp = C.KEYWORD_DIFFICULTY["HIGH_COMP_WORDS"]
+    low_comp = C.KEYWORD_DIFFICULTY["LOW_COMP_WORDS"]
     high_score = sum(1 for w in high_comp if w in t)
     low_score = sum(1 for w in low_comp if w in t)
-    base = 55
-    base += high_score * 8
-    base -= low_score * 10
+    base = C.KEYWORD_DIFFICULTY["BASE"]
+    base += high_score * C.KEYWORD_DIFFICULTY["HIGH_PENALTY_ADD"]
+    base -= low_score * C.KEYWORD_DIFFICULTY["LOW_BONUS_SUB"]
     val = round(_clamp(base))
     if val >= 70: label = "High"
     elif val >= 40: label = "Medium"
@@ -260,8 +262,7 @@ def compute_seo_strength(title: str, description: str, tags: List[str]) -> Dict:
     si = _searchability_index(title, description, tags)
     kd_val, kd_label = _keyword_difficulty(title)
 
-    stop_words = {'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to',
-                  'for', 'of', 'with', 'by', 'from', 'is', 'are', 'was', 'were'}
+    stop_words = C.KEYWORD_DENSITY["STOP_WORDS"]
     title_keywords = [w for w in title.split() if w.lower() not in stop_words and len(w) > 3]
     main_keyword = title_keywords[0] if title_keywords else title.split()[0] if title else "N/A"
     keyword_in_position = "first word" if title_keywords and title.lower().startswith(title_keywords[0].lower()) else "mid-title"
@@ -293,65 +294,65 @@ def _pacing_score(duration_seconds: int) -> float:
         return 50
     minutes = duration_seconds / 60
     if 8 <= minutes <= 20:
-        return 90
+        return C.PACING["MIN_8_20"]
     elif 5 <= minutes < 8 or 20 < minutes <= 30:
-        return 75
+        return C.PACING["MIN_5_8_OR_20_30"]
     elif 3 <= minutes < 5 or 30 < minutes <= 45:
-        return 60
+        return C.PACING["MIN_3_5_OR_30_45"]
     elif 1 <= minutes < 3:
-        return 50
+        return C.PACING["MIN_1_3"]
     elif minutes > 45:
-        return 45
-    return 35
+        return C.PACING["MIN_GT_45"]
+    return C.PACING["DEFAULT"]
 
 
 def _content_structure_completeness(description: str) -> float:
     """Check if description has structured, complete content. 0-100."""
     if not description:
-        return 10
+        return C.CONTENT_STRUCTURE["BASELINE"]
     score = 0
-    if len(description) >= 500: score += 25
-    elif len(description) >= 200: score += 15
+    if len(description) >= 500: score += C.CONTENT_STRUCTURE["LEN_500_BONUS"]
+    elif len(description) >= 200: score += C.CONTENT_STRUCTURE["LEN_200_BONUS"]
     timestamps = re.findall(r'\b\d{1,2}:\d{2}\b', description)
-    if len(timestamps) >= 5: score += 30
-    elif len(timestamps) >= 3: score += 20
-    elif len(timestamps) >= 1: score += 10
-    if any(w in description.lower() for w in ['intro', 'introduction', 'conclusion', 'summary']):
-        score += 15
-    if re.search(r'https?://', description): score += 15
+    if len(timestamps) >= 5: score += C.CONTENT_STRUCTURE["TS_5_BONUS"]
+    elif len(timestamps) >= 3: score += C.CONTENT_STRUCTURE["TS_3_BONUS"]
+    elif len(timestamps) >= 1: score += C.CONTENT_STRUCTURE["TS_1_BONUS"]
+    if any(w in description.lower() for w in C.CONTENT_STRUCTURE["STRUCT_WORDS"]):
+        score += C.CONTENT_STRUCTURE["STRUCT_BONUS"]
+    if re.search(r'https?://', description): score += C.CONTENT_STRUCTURE["LINK_BONUS"]
     cta_words = ['subscribe', 'like', 'comment', 'share']
-    if any(w in description.lower() for w in cta_words): score += 15
+    if any(w in description.lower() for w in cta_words): score += C.CONTENT_STRUCTURE["CTA_BONUS"]
     return round(_clamp(score))
 
 
 def _engagement_signal_density(description: str, view_count: int, like_count: int, comment_count: int) -> float:
     """Measure engagement call-to-action strength + real engagement. 0-10."""
-    score = 5.0
+    score = C.ENGAGEMENT_DENSITY["BASE"]
     ctas = ['subscribe', 'like', 'comment', 'share', 'bell', 'notification',
             'watch next', 'click', 'follow', 'join', 'download']
     cta_count = sum(1 for w in ctas if w in (description or "").lower())
-    score += min(cta_count * 0.4, 2)
+    score += min(cta_count * C.ENGAGEMENT_DENSITY["CTA_MULTIPLIER"], C.ENGAGEMENT_DENSITY["CTA_MAX"])
     if view_count > 0:
         er = like_count / view_count
-        if er >= 0.05: score += 2
-        elif er >= 0.03: score += 1.5
-        elif er >= 0.01: score += 0.5
+        if er >= 0.05: score += C.ENGAGEMENT_DENSITY["ER_05_BONUS"]
+        elif er >= 0.03: score += C.ENGAGEMENT_DENSITY["ER_03_BONUS"]
+        elif er >= 0.01: score += C.ENGAGEMENT_DENSITY["ER_01_BONUS"]
         comment_rate = comment_count / view_count if comment_count else 0
-        if comment_rate >= 0.005: score += 1
+        if comment_rate >= 0.005: score += C.ENGAGEMENT_DENSITY["COMMENT_RATE_BONUS"]
     return round(float(_clamp(score, 0, 10)), 1)  # type: ignore
 
 
 def _drop_off_risk(duration_seconds: int, description: str) -> Tuple[str, float]:
     """Assess drop-off risk level. Returns (label, score 0-10)."""
-    score = 7.0
+    score = C.DROP_OFF_RISK["BASE"]
     if duration_seconds > 0:
         minutes = duration_seconds / 60
-        if minutes > 40: score -= 2.5
-        elif minutes > 25: score -= 1.5
-        elif minutes > 15: score -= 0.5
+        if minutes > 40: score -= C.DROP_OFF_RISK["MIN_40_PENALTY"]
+        elif minutes > 25: score -= C.DROP_OFF_RISK["MIN_25_PENALTY"]
+        elif minutes > 15: score -= C.DROP_OFF_RISK["MIN_15_PENALTY"]
     timestamps = len(re.findall(r'\b\d{1,2}:\d{2}\b', description or ""))
-    if timestamps >= 5: score += 1.5
-    elif timestamps >= 3: score += 1
+    if timestamps >= 5: score += C.DROP_OFF_RISK["TS_5_BONUS"]
+    elif timestamps >= 3: score += C.DROP_OFF_RISK["TS_3_BONUS"]
     score = _clamp(score, 0, 10)
     if score >= 7: label = "Low Risk"
     elif score >= 5: label = "Medium Risk"
@@ -410,57 +411,49 @@ def compute_retention(title: str, description: str, duration_seconds: int,
 def _emotional_intensity_index(title: str, description: str) -> float:
     """Detect emotional intensity in text. 0-10."""
     text = (title + " " + (str(description) or "")[:500]).lower()  # type: ignore
-    emotional_words = [
-        'amazing', 'incredible', 'shocking', 'unbelievable', 'mind-blowing', 'epic',
-        'hate', 'love', 'fear', 'angry', 'excited', 'hilarious', 'sad', 'beautiful',
-        'terrifying', 'surprising', 'emotional', 'powerful', 'inspiring',
-    ]
+    emotional_words = C.EMOTIONAL_INTENSITY["WORDS"]
     matches = sum(1 for w in emotional_words if w in text)
-    return round(float(_clamp(3 + matches * 0.7, 0, 10)), 1)  # type: ignore
+    return round(float(_clamp(C.EMOTIONAL_INTENSITY["BASE"] + matches * C.EMOTIONAL_INTENSITY["MULTIPLIER"], 0, 10)), 1)  # type: ignore
 
 
 def _shareability_score(title: str, description: str, tags: List[str],
                          view_count: int, like_count: int) -> float:
     """How shareable is this content? 0-100."""
-    score = 40
-    share_hooks = ['share', 'must see', 'watch this', 'everyone', 'viral', 'funny', 'amazing']
+    score = C.SHAREABILITY["BASE"]
+    share_hooks = C.SHAREABILITY["HOOK_WORDS"]
     text = (title + " " + (str(description) or "")[:300]).lower()  # type: ignore
-    score += sum(min(5, 1) for w in share_hooks if w in text) * 5
+    score += sum(min(5, 1) for w in share_hooks if w in text) * C.SHAREABILITY["HOOK_BONUS"]
 
     if view_count > 0:
         er = like_count / view_count
-        if er >= 0.08: score += 25
-        elif er >= 0.04: score += 15
-        elif er >= 0.02: score += 8
+        if er >= 0.08: score += C.SHAREABILITY["ER_08_BONUS"]
+        elif er >= 0.04: score += C.SHAREABILITY["ER_04_BONUS"]
+        elif er >= 0.02: score += C.SHAREABILITY["ER_02_BONUS"]
 
-    if view_count > 100000: score += 15
-    elif view_count > 10000: score += 8
+    if view_count > 100000: score += C.SHAREABILITY["VIEW_100K_BONUS"]
+    elif view_count > 10000: score += C.SHAREABILITY["VIEW_10K_BONUS"]
 
     return round(_clamp(score))
 
 
 def _trend_alignment_score(title: str, tags: List[str]) -> float:
     """Check for trending topic signals in title and tags. 0-100."""
-    trend_signals = [
-        '2025', '2026', 'new', 'latest', 'trending', 'viral', 'react', 'reaction',
-        'ai', 'chatgpt', 'shorts', 'fyp', 'challenge', '#shorts',
-    ]
+    trend_signals = C.TREND_ALIGNMENT["SIGNALS"]
     text = (title + " " + " ".join(tags or [])).lower()
     matches = sum(1 for t in trend_signals if t in text)
-    return round(_clamp(30 + matches * 10))
+    return round(_clamp(C.TREND_ALIGNMENT["BASE"] + matches * C.TREND_ALIGNMENT["MULTIPLIER"]))
 
 
 def _controversy_meter(title: str, description: str) -> float:
     """Estimate controversy level. 0-10. Mid-range is best for engagement."""
     text = (title + " " + (str(description) or "")[:300]).lower()  # type: ignore
-    controversy_words = ['vs', 'debate', 'controversial', 'truth', 'expose', 'wrong',
-                         'disagree', 'myth', 'lie', 'real', 'fake', 'unpopular opinion']
+    controversy_words = C.CONTROVERSY["WORDS"]
     matches = sum(1 for w in controversy_words if w in text)
-    return round(float(_clamp(2 + matches * 0.8, 0, 10)), 1)  # type: ignore
+    return round(float(_clamp(C.CONTROVERSY["BASE"] + matches * C.CONTROVERSY["MULTIPLIER"], 0, 10)), 1)  # type: ignore
 
 
 def compute_virality(title: str, description: str, tags: List[str],
-                     view_count: int, like_count: int, comment_count: int) -> Dict:
+                      view_count: int, like_count: int, comment_count: int) -> Dict:
     emotional = _emotional_intensity_index(title, description)
     shareability = _shareability_score(title, description, tags, view_count, like_count)
     trend = _trend_alignment_score(title, tags)
@@ -501,31 +494,31 @@ def compute_virality(title: str, description: str, tags: List[str],
 def _video_length_optimization(duration_seconds: int) -> float:
     """Is the length optimal for YouTube monetization & retention? 0-100."""
     minutes = duration_seconds / 60 if duration_seconds > 0 else 0
-    if 8 <= minutes <= 20: return 95
-    if 6 <= minutes < 8 or 20 < minutes <= 30: return 80
-    if 4 <= minutes < 6 or 30 < minutes <= 40: return 65
-    if 2 <= minutes < 4: return 50
-    if minutes > 40: return 40
-    return 30
+    if 8 <= minutes <= 20: return C.LENGTH_OPT["MIN_8_20"]
+    if 6 <= minutes < 8 or 20 < minutes <= 30: return C.LENGTH_OPT["MIN_6_8_OR_20_30"]
+    if 4 <= minutes < 6 or 30 < minutes <= 40: return C.LENGTH_OPT["MIN_4_6_OR_30_40"]
+    if 2 <= minutes < 4: return C.LENGTH_OPT["MIN_2_4"]
+    if minutes > 40: return C.LENGTH_OPT["MIN_GT_40"]
+    return C.LENGTH_OPT["DEFAULT"]
 
 
 def _metadata_completeness(title: str, description: str, tags: List[str],
                             view_count: int) -> float:
     """Check if all metadata fields are present and rich. 0-100."""
     score = 0
-    if title and len(title) >= 20: score += 20
-    if description and len(description) >= 200: score += 25
-    elif description and len(description) >= 50: score += 10
-    if tags and len(tags) >= 5: score += 20
-    elif tags: score += 10
-    if description and re.findall(r'#\w+', description): score += 15
-    if description and re.findall(r'\b\d{1,2}:\d{2}\b', description): score += 20
+    if title and len(title) >= 20: score += C.METADATA_COMPLETENESS["TITLE_20_BONUS"]
+    if description and len(description) >= 200: score += C.METADATA_COMPLETENESS["DESC_200_BONUS"]
+    elif description and len(description) >= 50: score += C.METADATA_COMPLETENESS["DESC_50_BONUS"]
+    if tags and len(tags) >= 5: score += C.METADATA_COMPLETENESS["TAGS_5_BONUS"]
+    elif tags: score += C.METADATA_COMPLETENESS["TAGS_1_BONUS"]
+    if description and re.findall(r'#\w+', description): score += C.METADATA_COMPLETENESS["HASHTAG_BONUS"]
+    if description and re.findall(r'\b\d{1,2}:\d{2}\b', description): score += C.METADATA_COMPLETENESS["TIMESTAMP_BONUS"]
     return round(_clamp(score))
 
 
 def _upload_timing_score(upload_date: str, timestamp: float = 0) -> Tuple[str, float]:
     """Estimate upload timing quality. 0-100."""
-    score = 65  # default neutral
+    score = C.UPLOAD_TIMING["BASE"]  # default neutral
     label = "Unknown timing"
     
     try:
@@ -544,22 +537,22 @@ def _upload_timing_score(upload_date: str, timestamp: float = 0) -> Tuple[str, f
         hour = dt.hour
 
         if weekday in (3, 4):  # Thu/Fri
-            score += 15
+            score += C.UPLOAD_TIMING["THU_FRI_BONUS"]
             day_label = "Thursday/Friday"
         elif weekday in (1, 2):  # Tue/Wed
-            score += 10
+            score += C.UPLOAD_TIMING["TUE_WED_BONUS"]
             day_label = "Tuesday/Wednesday"
         elif weekday in (5, 6):  # Weekend
-            score += 5
+            score += C.UPLOAD_TIMING["WEEKEND_BONUS"]
             day_label = "Weekend"
         else:
             day_label = "Monday"
 
         if 14 <= hour <= 17:
-            score += 15
+            score += C.UPLOAD_TIMING["HOUR_14_17_BONUS"]
             label = f"Excellent ({day_label}, {hour}:00)"
         elif 10 <= hour <= 14 or 17 < hour <= 20:
-            score += 8
+            score += C.UPLOAD_TIMING["HOUR_10_14_OR_17_20_BONUS"]
             label = f"Good ({day_label}, {hour}:00)"
         else:
             label = f"Off-peak ({day_label}, {hour}:00)"
@@ -593,11 +586,11 @@ def compute_technical(title: str, description: str, tags: List[str],
 
 def _title_uniqueness_score(title: str) -> float:
     """Heuristic uniqueness of the title. 0-100."""
-    generic = ['video', 'watch', 'click here', 'please', 'new video', 'upload', 'official']
+    generic = C.TITLE_UNIQUENESS["GENERIC_WORDS"]
     t = title.lower()
     generic_hits = sum(1 for w in generic if w in t)
-    score = 80 - generic_hits * 12
-    if len(title.split()) >= 6: score += 10
+    score = C.TITLE_UNIQUENESS["BASE"] - generic_hits * C.TITLE_UNIQUENESS["GENERIC_PENALTY"]
+    if len(title.split()) >= 6: score += C.TITLE_UNIQUENESS["LONG_TITLE_BONUS"]
     return round(_clamp(score))
 
 
@@ -998,12 +991,14 @@ def analyze_video_comprehensive(url: str) -> Dict[str, Any]:
 
     # ── Overall score ───────────────────────────────────────────────────
     # Updated weights, competitive and psychology removed from overall score
+    # ── Overall score ───────────────────────────────────────────────────
+    # Updated weights, competitive and psychology removed from overall score
     overall_score = round(
-        click["master_score"]       * 0.25 +
-        retention["master_score"]   * 0.30 +
-        seo["master_score"]         * 0.15 +
-        viral["master_score"]       * 0.20 +
-        technical["master_score"]   * 0.10
+        click["master_score"]       * C.OVERALL_WEIGHTS["CLICK"] +
+        retention["master_score"]   * C.OVERALL_WEIGHTS["RETENTION"] +
+        seo["master_score"]         * C.OVERALL_WEIGHTS["SEO"] +
+        viral["master_score"]       * C.OVERALL_WEIGHTS["VIRAL"] +
+        technical["master_score"]   * C.OVERALL_WEIGHTS["TECHNICAL"]
     )
 
     hashtag_count = len(re.findall(r'#\w+', desc))

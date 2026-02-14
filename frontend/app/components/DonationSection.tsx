@@ -1,128 +1,84 @@
-// frontend/components/DonationSection.tsx
 "use client";
-import { Heart, QrCode, CreditCard, Copy, Check } from "lucide-react";
-import { useState } from "react";
 import Image from "next/image";
+import { Copy, Check } from "lucide-react";
+import { useState } from "react";
 
 export default function DonationSection() {
   const [copied, setCopied] = useState<string | null>(null);
 
-  const copyToClipboard = (text: string, field: string) => {
+  const copyToClipboard = (text: string, key: string) => {
     navigator.clipboard.writeText(text);
-    setCopied(field);
+    setCopied(key);
     setTimeout(() => setCopied(null), 2000);
   };
 
   return (
-    <section className="mt-16 mb-8 max-w-4xl mx-auto">
-      <div className="bg-gradient-to-br from-blue-600/10 via-purple-600/5 to-pink-600/10 border border-white/10 rounded-3xl p-8 backdrop-blur-sm">
-        
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-2 bg-blue-600/20 px-4 py-2 rounded-full mb-4">
-            <Heart className="text-red-500 animate-pulse" size={20} fill="currentColor" />
-            <span className="text-sm font-bold text-white uppercase tracking-wider">Support The Server</span>
-          </div>
-          <p className="text-slate-400 text-sm">
-            Choose your preferred way to help us stay online.
-          </p>
-        </div>
+    <div className="w-full bg-[#020617] border-t border-white/5 py-12 mt-20 relative overflow-hidden">
+      {/* Ambient Background */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full max-w-4xl bg-indigo-500/5 blur-3xl rounded-full pointer-events-none" />
 
-        {/* Payment Options */}
-        <div className="grid md:grid-cols-2 gap-6">
-          
-          {/* Binance Pay QR */}
-          <div className="bg-slate-900/50 rounded-2xl p-6 border border-white/5">
-            <div className="flex items-center gap-2 mb-4">
-              <QrCode className="text-yellow-500" size={20} />
-              <h3 className="font-bold text-white uppercase text-sm tracking-wide">Binance Pay</h3>
-            </div>
-            
-            <div className="bg-white p-4 rounded-xl mb-4 flex items-center justify-center">
-              <Image 
-                src="/binance_qr.png" 
-                alt="Binance Pay QR Code" 
-                width={200} 
-                height={200}
-                className="rounded-lg"
-                priority
-              />
-            </div>
+      <div className="max-w-4xl mx-auto px-4 relative z-10">
+        <div className="bg-slate-900/50 border border-indigo-500/30 rounded-3xl p-8 md:p-12 relative overflow-hidden backdrop-blur-sm shadow-2xl">
 
-            {/* Binance Pay ID */}
-            <div className="bg-slate-800/50 rounded-lg p-3 mb-2">
-              <p className="text-xs text-yellow-500 font-bold uppercase mb-1">Binance Pay ID</p>
-              <div className="flex items-center justify-between gap-2">
-                <code className="text-white font-mono text-sm">86846518</code>
-                <button
-                  onClick={() => copyToClipboard("86846518", "payid")}
-                  className="p-2 hover:bg-slate-700 rounded-lg transition-colors"
-                  title="Copy Pay ID"
-                >
-                  {copied === "payid" ? (
-                    <Check className="text-green-500" size={16} />
-                  ) : (
-                    <Copy className="text-slate-400" size={16} />
-                  )}
-                </button>
+          <div className="flex flex-col md:flex-row items-center gap-10">
+            {/* QR Code */}
+            <div className="bg-white p-4 rounded-2xl shadow-xl shrink-0 rotate-1 hover:rotate-0 transition-transform duration-500 group">
+              <div className="relative w-[180px] h-[180px] md:w-[200px] md:h-[200px]">
+                <Image
+                  src="/binance_qr.png"
+                  alt="Binance Pay QR"
+                  fill
+                  className="object-contain rounded-lg"
+                />
               </div>
+              <div className="text-center font-bold text-slate-900 mt-2 text-sm tracking-widest">BINANCE PAY</div>
             </div>
 
-            <p className="text-xs text-slate-500 text-center">
-              Scan via Binance App → Pay → Scan QR
-            </p>
-          </div>
+            {/* Content */}
+            <div className="flex-1 w-full text-center md:text-left">
+              <div className="flex items-center gap-3 justify-center md:justify-start mb-2 text-amber-400">
+                <span className="text-2xl animate-bounce">☕</span>
+                <h2 className="text-2xl font-black uppercase tracking-wide text-white">Support the Server</h2>
+              </div>
+              <p className="text-slate-400 mb-8 text-sm leading-relaxed">
+                Keep <strong>King Tools</strong> online, ad-light and high-speed. Your support directly covers our server costs and fuels new feature development.
+              </p>
 
-          {/* Global Payment (USDT) */}
-          <div className="bg-slate-900/50 rounded-2xl p-6 border border-white/5">
-            <div className="flex items-center gap-2 mb-4">
-              <CreditCard className="text-blue-500" size={20} />
-              <h3 className="font-bold text-white uppercase text-sm tracking-wide">Credit / Debit Card (Global)</h3>
-            </div>
+              <div className="space-y-4">
+                {/* Binance Pay ID */}
+                <div className="bg-slate-800/80 p-4 rounded-xl border border-slate-700 hover:border-indigo-500 transition-all group hover:shadow-lg hover:shadow-indigo-500/10 hover:-translate-y-1">
+                  <div className="text-[10px] text-amber-500 font-bold mb-1 uppercase tracking-wider">Binance Pay ID</div>
+                  <div className="flex items-center justify-between gap-4">
+                    <code className="text-white text-lg font-mono font-bold">86846518</code>
+                    <button
+                      onClick={() => copyToClipboard("86846518", "binance")}
+                      className="text-slate-400 hover:text-white transition-colors p-2 hover:bg-white/10 rounded-lg"
+                      title="Copy ID"
+                    >
+                      {copied === "binance" ? <Check size={18} className="text-emerald-400" /> : <Copy size={18} />}
+                    </button>
+                  </div>
+                </div>
 
-            <div className="space-y-3">
-              {/* USDT Address */}
-              <div className="bg-slate-800/50 rounded-lg p-3">
-                <p className="text-xs text-blue-500 font-bold uppercase mb-1">Global USDT (TRC-20)</p>
-                <div className="flex items-start justify-between gap-2">
-                  <code className="text-white font-mono text-[10px] leading-relaxed break-all">
-                    TL1gxN0161p3pKnb7FRiKqTd8JDH9bq0Y6E
-                  </code>
-                  <button
-                    onClick={() => copyToClipboard("TL1gxN0161p3pKnb7FRiKqTd8JDH9bq0Y6E", "usdt")}
-                    className="p-2 hover:bg-slate-700 rounded-lg transition-colors flex-shrink-0"
-                    title="Copy USDT Address"
-                  >
-                    {copied === "usdt" ? (
-                      <Check className="text-green-500" size={16} />
-                    ) : (
-                      <Copy className="text-slate-400" size={16} />
-                    )}
-                  </button>
+                {/* USDT Address */}
+                <div className="bg-slate-800/80 p-4 rounded-xl border border-slate-700 hover:border-indigo-500 transition-all group hover:shadow-lg hover:shadow-indigo-500/10 hover:-translate-y-1">
+                  <div className="text-[10px] text-blue-400 font-bold mb-1 uppercase tracking-wider">Global USDT (TRC-20)</div>
+                  <div className="flex items-center justify-between gap-4">
+                    <code className="text-white text-sm md:text-base font-mono break-all text-left">TLlggXh91RjxpKNb7FHXgTd6JDHb9gQVVE</code>
+                    <button
+                      onClick={() => copyToClipboard("TLlggXh91RjxpKNb7FHXgTd6JDHb9gQVVE", "usdt")}
+                      className="text-slate-400 hover:text-white transition-colors p-2 hover:bg-white/10 rounded-lg shrink-0"
+                      title="Copy Address"
+                    >
+                      {copied === "usdt" ? <Check size={18} className="text-emerald-400" /> : <Copy size={18} />}
+                    </button>
+                  </div>
                 </div>
               </div>
-
-              {/* Credit Card Button */}
-              <button className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-bold py-3 px-4 rounded-xl transition-all uppercase text-sm tracking-wider shadow-lg hover:shadow-xl">
-                💳 Pay with Credit / Debit Card
-              </button>
-
-              <p className="text-xs text-slate-500 text-center">
-                Worldwide payments accepted
-              </p>
             </div>
           </div>
-
         </div>
-
-        {/* Bottom Message */}
-        <div className="mt-6 text-center">
-          <p className="text-xs text-slate-400">
-            🙏 Every contribution helps keep King Tools free and ad-light. Thank you for your support!
-          </p>
-        </div>
-
       </div>
-    </section>
+    </div>
   );
 }

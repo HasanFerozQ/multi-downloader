@@ -1,2 +1,5 @@
-[00:00:01.831] Server  LOG     ✓ Ready in 1321ms
-[00:00:11.184] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:00:01.706] Server  LOG     ✓ Ready in 1263ms
+[00:00:04.811] Server  LOG     ○ Compiling / ...
+[00:00:06.755] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:00:07.770] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:00:07.993] Browser WARN    Image with src "/binance_qr.png" has "fill" but is missing "sizes" prop. Please add it to improve page performance. Read more: https://nextjs.org/docs/api-reference/next/image#sizes
