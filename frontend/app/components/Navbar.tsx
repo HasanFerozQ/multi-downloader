@@ -9,6 +9,7 @@ export default function Navbar() {
   const navItems = [
     { name: "Video Analyzer", path: "/", icon: <BarChart3 size={18} /> },  // NEW HOMEPAGE
     { name: "5-in-1 Downloader", path: "/downloader", icon: <Download size={18} /> },  // MOVED
+    { name: "Video Tools", path: "/video-tools", icon: <Languages size={18} /> },
     { name: "Convertors", path: "/convertors", icon: <Languages size={18} /> },
   ];
 

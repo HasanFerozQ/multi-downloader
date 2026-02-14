@@ -13,9 +13,10 @@ load_dotenv()
 
 app = FastAPI(title="Pro StreamDown API")
 
-from routers import convert_router, feedback_router
+from routers import convert_router, feedback_router, video_tools_router
 app.include_router(convert_router.router)
 app.include_router(feedback_router.router)
+app.include_router(video_tools_router.router)
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
