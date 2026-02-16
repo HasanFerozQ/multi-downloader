@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 import uuid
 
-from services.converter import ImageConverter, AudioConverter, DocumentConverter, BaseConverter, UPLOAD_DIR, OUTPUT_DIR
+from backend.services.converter import ImageConverter, AudioConverter, DocumentConverter, BaseConverter, UPLOAD_DIR, OUTPUT_DIR
 
 router = APIRouter()
 

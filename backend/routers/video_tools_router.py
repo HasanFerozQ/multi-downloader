@@ -5,7 +5,7 @@ Handles video editing operations: trim, resize, convert, extract audio
 
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 from fastapi.responses import FileResponse
-from services.video_processor import VideoProcessor
+from backend.services.video_processor import VideoProcessor
 from pathlib import Path
 import json
 import shutil

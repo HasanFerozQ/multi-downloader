@@ -1,6 +1,6 @@
 import re
 from typing import Dict, List, Tuple, Any
-from services import analyzer_config as C
+from backend.services import analyzer_config as C
 
 
 # ─────────────────────────────────────────────

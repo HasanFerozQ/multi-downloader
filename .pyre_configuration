@@ -1,0 +1,10 @@
+{
+  "source_directories": ["."],
+  "search_path": ["."],
+  "exclude": [
+    ".*/venv/.*",
+    ".*/node_modules/.*",
+    ".*/__pycache__/.*",
+    ".*/temp_.*"
+  ]
+}

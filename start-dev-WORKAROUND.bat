@@ -11,6 +11,8 @@ REM Set project paths
 set PROJECT_ROOT=C:\Users\Hasan-PC\Desktop\multi-downloader
 set BACKEND_DIR=%PROJECT_ROOT%\backend
 set FRONTEND_DIR=%PROJECT_ROOT%\frontend
+set VENV_PYTHON=%BACKEND_DIR%\venv\Scripts\python.exe
+set VENV_UVICORN=%BACKEND_DIR%\venv\Scripts\uvicorn.exe
 
 cd /d "%PROJECT_ROOT%"
 
@@ -40,13 +42,13 @@ echo   [OK] Redis started
 
 REM 2. Celery Worker with GEVENT pool (Python 3.13 compatible)
 echo [2/4] Starting Celery Worker (gevent pool)...
-start "Celery Worker" cmd /k "cd /d %BACKEND_DIR% && celery -A worker.celery worker --loglevel=info --pool=gevent --concurrency=10"
+start "Celery Worker" cmd /k "cd /d %PROJECT_ROOT% && %VENV_PYTHON% run_celery.py -A backend.worker.celery worker --loglevel=info --pool=gevent --concurrency=10"
 timeout /t 3 /nobreak >nul
 echo   [OK] Celery Worker started
 
 REM 3. FastAPI Backend
 echo [3/4] Starting FastAPI Backend (Port 8000)...
-start "FastAPI Backend" cmd /k "cd /d %BACKEND_DIR% && uvicorn main:app --reload --host 127.0.0.1 --port 8000"
+start "FastAPI Backend" cmd /k "cd /d %PROJECT_ROOT% && %VENV_UVICORN% backend.main:app --reload --host 127.0.0.1 --port 8000"
 timeout /t 4 /nobreak >nul
 echo   [OK] FastAPI started
 

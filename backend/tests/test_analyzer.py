@@ -1,12 +1,12 @@
 import pytest
-from services.video_analyzer import (
+from backend.services.video_analyzer import (
     _title_performance_score,
     _pacing_score,
     _tag_quality_score,
     _keyword_difficulty,
     _upload_timing_score
 )
-from services import analyzer_config as C
+from backend.services import analyzer_config as C
 
 def test_title_performance_ideal():
     # Ideal title: 40-60 chars, power word, number

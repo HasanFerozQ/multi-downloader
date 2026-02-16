@@ -4,16 +4,16 @@ from fastapi.middleware.cors import CORSMiddleware  # type: ignore
 from fastapi.responses import FileResponse, JSONResponse  # type: ignore
 from slowapi import Limiter  # type: ignore
 from slowapi.util import get_remote_address  # type: ignore
-from worker import download_video_task   # type: ignore
-from services.scraper import get_video_info  # type: ignore
-from services.video_analyzer import analyze_video_comprehensive  # type: ignore
+from backend.worker import download_video_task   # type: ignore
+from backend.services.scraper import get_video_info  # type: ignore
+from backend.services.video_analyzer import analyze_video_comprehensive  # type: ignore
 from dotenv import load_dotenv
 
 load_dotenv()
 
 app = FastAPI(title="Pro StreamDown API")
 
-from routers import convert_router, feedback_router, video_tools_router
+from backend.routers import convert_router, feedback_router, video_tools_router
 app.include_router(convert_router.router)
 app.include_router(feedback_router.router)
 app.include_router(video_tools_router.router)
@@ -42,7 +42,7 @@ app.add_middleware(
 # Ensure temp directory exists on startup
 os.makedirs("temp_downloads", exist_ok=True)
 
-from services.validators import validate_url, sanitize_input
+from backend.services.validators import validate_url, sanitize_input
 
 # --- INPUT VALIDATION ---
 # Moved to services/validators.py
