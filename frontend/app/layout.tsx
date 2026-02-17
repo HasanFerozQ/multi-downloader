@@ -12,8 +12,19 @@ import FeedbackWidget from "@/components/FeedbackWidget";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "King Tools - Video Analyzer & Downloader",
-  description: "Professional social media services platform for video analysis and downloads",
+  title: "King Tools - Video Analyzer, Downloader, Audio Tools & Converters",
+  description: "Professional social media toolkit: Analyze YouTube videos with 31 metrics, download from 5+ platforms, extract & enhance audio, convert images/audio/documents. Free online tools.",
+  keywords: ["video analyzer", "youtube analyzer", "video downloader", "audio tools", "file converter", "social media tools", "tiktok downloader", "instagram downloader"],
+  authors: [{ name: "King Tools" }],
+  openGraph: {
+    title: "King Tools - Complete Social Media Toolkit",
+    description: "Analyze, download, convert, and enhance your media content with professional-grade tools",
+    type: "website",
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 export default function RootLayout({

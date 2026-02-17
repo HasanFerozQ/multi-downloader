@@ -1,6 +1,10 @@
 "use client";
+import type { Metadata } from "next";
 import { useState } from "react";
 import Navbar from "@/components/Navbar";
+
+// Note: metadata export doesn't work in client components
+// Metadata is handled in layout.tsx for this page
 
 export default function Home() {
   const [url, setUrl] = useState("");
@@ -25,7 +29,7 @@ export default function Home() {
     try {
       const res = await fetch(`http://localhost:8000/analyze?url=${encodeURIComponent(url)}`);
       const data = await res.json();
-      
+
       if (data.error) {
         setError(data.error);
       } else {
@@ -56,7 +60,7 @@ export default function Home() {
         `http://localhost:8000/download/start?url=${encodeURIComponent(url)}&format_id=${selectedFormat}`
       );
       const data = await res.json();
-      
+
       if (!data.task_id) {
         setError("Failed to start download");
         setDownloading(false);
@@ -67,18 +71,18 @@ export default function Home() {
 
       // Connect to WebSocket for real-time progress
       const ws = new WebSocket(`ws://localhost:8000/ws/progress/${task_id}`);
-      
+
       ws.onopen = () => {
         setStatus("Connected");
       };
 
       ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
-        
+
         if (data.progress !== undefined) {
           setProgress(Math.round(data.progress));
         }
-        
+
         if (data.status) {
           setStatus(data.status);
         }
@@ -86,16 +90,16 @@ export default function Home() {
         if (data.status === "Finished") {
           ws.close();
           setStatus("Download complete! Saving file...");
-          
+
           const downloadUrl = `http://localhost:8000/download/file/${task_id}?title=${encodeURIComponent(videoData.title)}`;
-          
+
           const a = document.createElement('a');
           a.href = downloadUrl;
           a.download = '';
           document.body.appendChild(a);
           a.click();
           document.body.removeChild(a);
-          
+
           setTimeout(() => {
             setDownloading(false);
             setProgress(0);
@@ -134,7 +138,7 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white">
       <Navbar />
-      
+
       <div className="max-w-5xl mx-auto pt-24 px-4 pb-12">
         {/* Header */}
         <div className="text-center mb-12">
@@ -145,7 +149,7 @@ export default function Home() {
             Download from YouTube, Facebook, Instagram, TikTok, and X
           </p>
         </div>
-        
+
         {/* URL Input Section */}
         <div className="bg-gray-800/50 backdrop-blur-sm p-8 rounded-2xl border border-gray-700 shadow-2xl mb-8">
           <div className="flex flex-col sm:flex-row gap-3">
@@ -173,7 +177,7 @@ export default function Home() {
               ) : "🔍 Analyze"}
             </button>
           </div>
-          
+
           {error && (
             <div className="mt-4 p-4 bg-red-500/10 border border-red-500/50 rounded-lg text-red-400 flex items-center gap-2">
               <span>⚠️</span>
@@ -188,10 +192,10 @@ export default function Home() {
             {/* Video Preview */}
             <div className="flex flex-col md:flex-row gap-6 p-6">
               <div className="md:w-80 flex-shrink-0">
-                <img 
-                  src={videoData.thumbnail} 
-                  className="w-full rounded-xl shadow-lg border border-gray-600" 
-                  alt="Video Thumbnail" 
+                <img
+                  src={videoData.thumbnail}
+                  className="w-full rounded-xl shadow-lg border border-gray-600"
+                  alt="Video Thumbnail"
                 />
                 <div className="mt-4 space-y-2 text-sm text-gray-400">
                   <div className="flex justify-between">
@@ -212,18 +216,18 @@ export default function Home() {
                   )}
                 </div>
               </div>
-              
+
               <div className="flex-1">
                 <h2 className="text-2xl font-bold mb-4 text-white">
                   {videoData.title}
                 </h2>
-                
+
                 {videoData.description && (
                   <p className="text-gray-400 text-sm mb-6 line-clamp-2">
                     {videoData.description}
                   </p>
                 )}
-                
+
                 {/* Quality Selection */}
                 <div className="mb-6">
                   <h3 className="text-lg font-semibold mb-3 text-gray-300">
@@ -235,13 +239,12 @@ export default function Home() {
                         key={f.id}
                         onClick={() => setSelectedFormat(f.id)}
                         disabled={downloading}
-                        className={`relative p-3 rounded-lg border-2 transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed ${
-                          selectedFormat === f.id 
+                        className={`relative p-3 rounded-lg border-2 transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed ${selectedFormat === f.id
                             ? f.id === "mp3"
                               ? "bg-purple-600 border-purple-400 shadow-lg shadow-purple-500/50"
                               : "bg-blue-600 border-blue-400 shadow-lg shadow-blue-500/50"
                             : "bg-gray-700 border-gray-600 hover:bg-gray-600 hover:border-gray-500"
-                        }`}
+                          }`}
                       >
                         <div className="font-bold text-sm">
                           {f.quality}
@@ -266,16 +269,16 @@ export default function Home() {
                       <span className="text-gray-400">{status}</span>
                       <span className="font-bold text-blue-400">{progress}%</span>
                     </div>
-                    
+
                     <div className="relative w-full h-3 bg-gray-700 rounded-full overflow-hidden">
-                      <div 
+                      <div
                         className="absolute top-0 left-0 h-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 transition-all duration-300 ease-out rounded-full"
                         style={{ width: `${progress}%` }}
                       >
                         <div className="absolute inset-0 bg-white/20 animate-pulse"></div>
                       </div>
                     </div>
-                    
+
                     <div className="flex items-center justify-center gap-2 text-sm text-gray-400">
                       <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />

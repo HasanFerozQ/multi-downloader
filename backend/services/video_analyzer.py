@@ -920,7 +920,7 @@ def analyze_video_comprehensive(url: str) -> Dict[str, Any]:
     Full video analysis — returns all 5 master scores + 31 sub-metrics.
     Compatible with the analyzer/page.tsx frontend.
     """
-    from services.scraper import get_video_info  # type: ignore
+    from backend.services.scraper import get_video_info  # type: ignore
     from datetime import datetime # Added for _calculate_vph
     import re # Added for hashtag/timestamp count
 

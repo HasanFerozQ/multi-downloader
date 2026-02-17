@@ -2,14 +2,15 @@
 
 import { useState, useCallback } from "react";
 import { useDropzone } from "react-dropzone";
-import { Upload, FileAudio, FileImage, FileText, X, Download, Loader2 } from "lucide-react";
+import { Upload, FileAudio, FileImage, FileText, X, Download, Loader2, ImagePlus } from "lucide-react";
+import GifDownloader from "./GifDownloader";
 
 interface ConvertorProps {
     type: 'image' | 'audio' | 'document';
 }
 
 export default function ConvertorSection() {
-    const [activeTab, setActiveTab] = useState<'image' | 'audio' | 'document'>('image');
+    const [activeTab, setActiveTab] = useState<'image' | 'audio' | 'document' | 'gif'>('image');
 
     return (
         <div className="w-full max-w-4xl mx-auto animate-in fade-in slide-in-from-bottom-5 duration-500">
@@ -19,6 +20,7 @@ export default function ConvertorSection() {
                     { id: 'image', label: 'Image Converter', icon: FileImage },
                     { id: 'audio', label: 'Audio Converter', icon: FileAudio },
                     { id: 'document', label: 'File Converter', icon: FileText },
+                    { id: 'gif', label: 'GIF Downloader', icon: ImagePlus },
                 ].map((tab) => (
                     <button
                         key={tab.id}
@@ -36,7 +38,11 @@ export default function ConvertorSection() {
 
             {/* Content Area */}
             <div className="bg-slate-900/50 border border-indigo-500/30 rounded-2xl p-6 min-h-[400px]">
-                <ConvertorInterface type={activeTab} key={activeTab} />
+                {activeTab === 'gif' ? (
+                    <GifDownloader />
+                ) : (
+                    <ConvertorInterface type={activeTab as 'image' | 'audio' | 'document'} key={activeTab} />
+                )}
             </div>
         </div>
     );

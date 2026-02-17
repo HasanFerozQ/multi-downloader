@@ -1,4 +1,17 @@
-[00:00:01.679] Server  LOG     ✓ Ready in 1217ms
-[00:00:10.227] Server  LOG     ○ Compiling / ...
-[00:00:11.567] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-[00:00:11.800] Browser WARN    Image with src "/binance_qr.png" has "fill" but is missing "sizes" prop. Please add it to improve page performance. Read more: https://nextjs.org/docs/api-reference/next/image#sizes
+[00:00:01.855] Server  LOG     ✓ Ready in 1378ms
+[00:00:11.145] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:00:11.945] Browser WARN    Image with src "/binance_qr.png" has "fill" but is missing "sizes" prop. Please add it to improve page performance. Read more: https://nextjs.org/docs/api-reference/next/image#sizes
+[00:04:40.840] Browser ERROR   A component is changing an uncontrolled input to be controlled. This is likely caused by the value changing from undefined to a defined value, which should not happen. Decide between using a controlled or uncontrolled input element for the lifetime of the component. More info: https://react.dev/link/controlled-components
+[00:06:03.558] Server  LOG     ✓ Compiled in 1142ms
+[00:13:23.580] Server  LOG     ✓ Compiled in 673ms
+[00:23:47.446] Server  LOG     ✓ Compiled in 654ms
+[00:38:38.857] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:38:39.088] Browser WARN    Image with src "/binance_qr.png" was detected as the Largest Contentful Paint (LCP). Please add the `loading="eager"` property if this image is above the fold.
+Read more: https://nextjs.org/docs/app/api-reference/components/image#loading
+[00:38:39.089] Browser WARN    Image with src "/binance_qr.png" has "fill" but is missing "sizes" prop. Please add it to improve page performance. Read more: https://nextjs.org/docs/api-reference/next/image#sizes
+[00:41:22.091] Server  LOG     ✓ Compiled in 630ms
+[00:41:46.748] Server  LOG     ✓ Compiled in 446ms
+[00:44:16.790] Browser LOG     [DEBUG] Waveform loaded and ready
+[00:50:58.950] Browser LOG     [DEBUG] Waveform loaded and ready
+[00:51:26.763] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:51:26.977] Browser WARN    Image with src "/binance_qr.png" has "fill" but is missing "sizes" prop. Please add it to improve page performance. Read more: https://nextjs.org/docs/api-reference/next/image#sizes

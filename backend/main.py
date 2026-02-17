@@ -1,4 +1,10 @@
-import uuid, asyncio, json, redis, os, re  # type: ignore
+import sys
+import os
+
+# Add parent directory to sys.path to allow importing backend modules
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+import uuid, asyncio, json, redis, re  # type: ignore
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, HTTPException, BackgroundTasks  # type: ignore
 from fastapi.middleware.cors import CORSMiddleware  # type: ignore
 from fastapi.responses import FileResponse, JSONResponse  # type: ignore
@@ -13,13 +19,21 @@ load_dotenv()
 
 app = FastAPI(title="Pro StreamDown API")
 
-from backend.routers import convert_router, feedback_router, video_tools_router
-app.include_router(convert_router.router)
-app.include_router(feedback_router.router)
-app.include_router(video_tools_router.router)
+from backend.routers import convert_router, feedback_router, gif_router, audio_tools_router # type: ignore
+app.include_router(convert_router)
+app.include_router(feedback_router)
+app.include_router(gif_router)
+app.include_router(audio_tools_router)
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
+    if hasattr(exc, "status_code") and hasattr(exc, "detail"):
+        status_code = getattr(exc, "status_code")
+        detail = getattr(exc, "detail")
+        return JSONResponse(
+            status_code=status_code,
+            content={"detail": detail},
+        )
     return JSONResponse(
         status_code=500,
         content={"detail": "Internal Server Error", "error": str(exc)},
@@ -42,7 +56,7 @@ app.add_middleware(
 # Ensure temp directory exists on startup
 os.makedirs("temp_downloads", exist_ok=True)
 
-from backend.services.validators import validate_url, sanitize_input
+from backend.services.validators import validate_url, sanitize_input # type: ignore
 
 # --- INPUT VALIDATION ---
 # Moved to services/validators.py
