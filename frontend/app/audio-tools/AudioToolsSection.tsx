@@ -2,18 +2,24 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useDropzone } from "react-dropzone";
-import { Upload, Download, Loader2, Mic, Music, Volume2, Wind, Sparkles, Activity, Play, Pause, Radio, Phone, Podcast, Mountain, X } from "lucide-react";
+import { Upload, Download, Loader2, Mic, Music, Volume2, Wind, Sparkles, Activity, Play, Pause, Radio, Phone, Podcast, Mountain, X, Zap, Sliders, ToggleLeft, ToggleRight } from "lucide-react";
 import { API_URL } from "@/config/api";
 import WaveSurfer from 'wavesurfer.js';
 
+// Effect state now mixes booleans (toggles) and numbers (real-time sliders)
 type EffectState = {
-    noise_reduction: number;
-    fix_echo: number;
-    enhance_voice: number;
-    breath_removal: number;
-    volume: number;
-    advanced_noise_reduction: number;
-    hum_removal: number;
+    // Backend Toggles (Heavy Processing)
+    noise_reduction: boolean; // Was number
+    fix_echo: boolean;        // Was number
+    enhance_voice: boolean;   // Was number
+    breath_removal: boolean;  // Was number
+    advanced_noise_reduction: boolean; // Was number
+    hum_removal: boolean;     // Was number
+    denoise_ultra: boolean;   // Already boolean
+
+    // Real-time Web Audio API (Sliders)
+    volume: number;           // +/- dB
+    clarity: number;          // 0-100%
 };
 
 const MAX_FILE_SIZE = 700 * 1024 * 1024; // 700MB
@@ -26,19 +32,166 @@ export default function AudioToolsSection() {
     const [error, setError] = useState<string | null>(null);
     const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
 
+    // Queue System State
+    const [taskId, setTaskId] = useState<string | null>(null);
+    const [queuePosition, setQueuePosition] = useState<number | null>(null);
+    const [estimatedWait, setEstimatedWait] = useState<number | null>(null);
+    const [statusMessage, setStatusMessage] = useState<string>("Processing...");
+
     const waveformRef = useRef<HTMLDivElement>(null);
     const wavesurfer = useRef<WaveSurfer | null>(null);
     const [isPlaying, setIsPlaying] = useState(false);
 
+    // Web Audio API Refs
+    const audioContextRef = useRef<AudioContext | null>(null);
+    const sourceNodeRef = useRef<MediaElementAudioSourceNode | null>(null);
+    const gainNodeRef = useRef<GainNode | null>(null);
+    const compressorNodeRef = useRef<DynamicsCompressorNode | null>(null);
+    const highpassNodeRef = useRef<BiquadFilterNode | null>(null);
+
     const [effects, setEffects] = useState<EffectState>({
-        noise_reduction: 0,
-        fix_echo: 0,
-        enhance_voice: 0,
-        breath_removal: 0,
+        // Toggles -> Default Off
+        noise_reduction: false,
+        fix_echo: false,
+        enhance_voice: false,
+        breath_removal: false,
+        advanced_noise_reduction: false,
+        hum_removal: false,
+        denoise_ultra: false,
+
+        // Sliders -> Default 0
         volume: 0,
-        advanced_noise_reduction: 0,
-        hum_removal: 0
+        clarity: 0,
     });
+
+    // --- Web Audio API Setup ---
+    useEffect(() => {
+        if (!extractedAudioUrl || !wavesurfer.current) return;
+
+        const mediaElement = wavesurfer.current.getMediaElement();
+        if (!mediaElement) return;
+
+        // Initialize Audio Context only once
+        if (!audioContextRef.current) {
+            const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+            audioContextRef.current = new AudioContextClass();
+        }
+
+        const ctx = audioContextRef.current;
+
+        // Create Nodes if they don't exist
+        if (!sourceNodeRef.current) {
+            try {
+                sourceNodeRef.current = ctx.createMediaElementSource(mediaElement);
+            } catch (e) {
+                // Node might already be connected if re-running
+                console.warn("MediaElementSource mostly already attached", e);
+            }
+        }
+
+        if (!gainNodeRef.current) gainNodeRef.current = ctx.createGain();
+        if (!compressorNodeRef.current) compressorNodeRef.current = ctx.createDynamicsCompressor();
+        if (!highpassNodeRef.current) {
+            highpassNodeRef.current = ctx.createBiquadFilter();
+            highpassNodeRef.current.type = "highpass";
+            highpassNodeRef.current.frequency.value = 0; // Start flat
+        }
+
+        // Connect Graph: Source -> Highpass -> Compressor -> Gain -> Destination
+        if (sourceNodeRef.current && highpassNodeRef.current && compressorNodeRef.current && gainNodeRef.current) {
+            sourceNodeRef.current.disconnect();
+            sourceNodeRef.current
+                .connect(highpassNodeRef.current)
+                .connect(compressorNodeRef.current)
+                .connect(gainNodeRef.current)
+                .connect(ctx.destination);
+        }
+
+        return () => {
+            // Cleanup on unmount/change? Usually contexts persist, but we can disconnect
+        };
+    }, [extractedAudioUrl]);
+
+    // --- Real-time Effect Updates ---
+
+    // 1. Volume Change (GainNode)
+    useEffect(() => {
+        if (!gainNodeRef.current || !audioContextRef.current) return;
+
+        // Map dB to linear gain: 10^(dB/20)
+        // effects.volume is -10 to +10
+        const gainValue = Math.pow(10, effects.volume / 20);
+
+        // Smooth transition
+        gainNodeRef.current.gain.setTargetAtTime(gainValue, audioContextRef.current.currentTime, 0.1);
+
+    }, [effects.volume]);
+
+    // 2. Clarity Change (Compressor + Highpass)
+    useEffect(() => {
+        if (!compressorNodeRef.current || !highpassNodeRef.current || !audioContextRef.current) return;
+
+        const percent = effects.clarity; // 0-100
+
+        // Compressor Threshold: Lower threshold = more compression = "punchier/clearer"
+        // 0% -> -10dB (barely active), 100% -> -40dB (squashed/loud)
+        const threshold = -10 - (percent * 0.3);
+        compressorNodeRef.current.threshold.setTargetAtTime(threshold, audioContextRef.current.currentTime, 0.1);
+
+        // Highpass Filter: Remove muddiness
+        // 0% -> 0Hz, 100% -> 200Hz
+        const cutoff = percent * 2;
+        highpassNodeRef.current.frequency.setTargetAtTime(cutoff, audioContextRef.current.currentTime, 0.1);
+
+        // Makeup Gain (roughly): Compressor reduces volume, so we boost slightly
+        // We can do this via the knee or ratio, keeping it simple
+        compressorNodeRef.current.ratio.value = 1 + (percent / 20); // 1 to 6 ratio
+        compressorNodeRef.current.knee.value = 40 - (percent * 0.3);
+
+    }, [effects.clarity]);
+
+
+    // Polling Effect
+    useEffect(() => {
+        let interval: NodeJS.Timeout;
+        if (processing && taskId) {
+            interval = setInterval(async () => {
+                try {
+                    const res = await fetch(`${API_URL}/audio-tools/status/${taskId}`);
+                    if (!res.ok) return;
+
+                    const data = await res.json();
+
+                    if (data.status === 'SUCCESS') {
+                        clearInterval(interval);
+                        setProcessing(false);
+                        setTaskId(null);
+
+                        // Download
+                        const downloadUrl = `${API_URL}/audio-tools/download/${data.task_id}`;
+                        const a = document.createElement('a');
+                        a.href = downloadUrl;
+                        a.download = "processed_audio.mp3";
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+
+                    } else if (data.status === 'FAILURE') {
+                        clearInterval(interval);
+                        setProcessing(false);
+                        setTaskId(null);
+                        setError(data.error || "Processing failed");
+                    } else {
+                        // Update UI
+                        setStatusMessage(data.message || "Processing...");
+                    }
+                } catch (e) {
+                    console.error("Polling error", e);
+                }
+            }, 2000);
+        }
+        return () => clearInterval(interval);
+    }, [processing, taskId]);
 
     const onDrop = (acceptedFiles: File[]) => {
         if (acceptedFiles.length > 0) {
@@ -75,11 +228,12 @@ export default function AudioToolsSection() {
                 barWidth: 2,
                 barGap: 3,
                 height: 100,
+                // Important for Web Audio API:
+                backend: 'MediaElement',
             });
 
             wavesurfer.current.load(extractedAudioUrl);
 
-            // Hide upload progress once waveform is ready
             wavesurfer.current.on('ready', () => {
                 console.log('[DEBUG] Waveform loaded and ready');
                 setUploadProgress(0);
@@ -136,9 +290,6 @@ export default function AudioToolsSection() {
             const audioUrl = window.URL.createObjectURL(extractedBlob);
             setExtractedAudioUrl(audioUrl);
 
-            // Keep progress at 100 until waveform loads
-            // The waveform useEffect will handle hiding the progress
-
         } catch (err: any) {
             setError(err.message || "Extraction failed");
             setUploadProgress(0);
@@ -149,7 +300,7 @@ export default function AudioToolsSection() {
 
     const handlePresetClick = (preset: string) => {
         setSelectedPreset(preset);
-        // Don't auto-download, just set the preset as active
+        // Preset logic could setup defaults here if needed
     };
 
     const clearPreset = () => {
@@ -160,6 +311,7 @@ export default function AudioToolsSection() {
         if (!extractedAudioUrl) return;
         setProcessing(true);
         setError(null);
+        setStatusMessage("Uploading configuration...");
 
         try {
             const response = await fetch(extractedAudioUrl);
@@ -168,13 +320,26 @@ export default function AudioToolsSection() {
             const effectFormData = new FormData();
             effectFormData.append("file", blob, "input.mp3");
 
-            const effectsToSend = selectedPreset
-                ? { preset: selectedPreset, ...effects }
-                : effects;
+            // Convert UI State to Backend API format
+            // Backend expects 0-100 for some values, so we map booleans to 100/0
+            const backendEffects = {
+                noise_reduction: effects.noise_reduction ? 100 : 0,
+                fix_echo: effects.fix_echo ? 100 : 0,
+                enhance_voice: effects.enhance_voice ? 100 : 0,
+                breath_removal: effects.breath_removal ? 100 : 0,
+                advanced_noise_reduction: effects.advanced_noise_reduction ? 100 : 0,
+                hum_removal: effects.hum_removal ? 100 : 0,
+                denoise_ultra: effects.denoise_ultra, // boolean stays boolean in backend? Check backend. 
+                // Backend checks: if effects.get("denoise_ultra", False) -> boolean is fine.
+                // But others divide by 100.
 
-            console.log('[DEBUG] Sending effects to backend:', effectsToSend);
-            console.log('[DEBUG] Selected preset:', selectedPreset);
-            console.log('[DEBUG] Manual effects:', effects);
+                volume: effects.volume, // Pass dB directly
+                clarity: effects.clarity, // Pass 0-100 directly
+            };
+
+            const effectsToSend = selectedPreset
+                ? { preset: selectedPreset, ...backendEffects }
+                : backendEffects;
 
             effectFormData.append("effects", JSON.stringify(effectsToSend));
             effectFormData.append("preview", "false");
@@ -186,19 +351,16 @@ export default function AudioToolsSection() {
 
             if (!res.ok) throw new Error(await res.text());
 
-            const processedBlob = await res.blob();
-            const processedUrl = window.URL.createObjectURL(processedBlob);
+            const data = await res.json();
 
-            const a = document.createElement('a');
-            a.href = processedUrl;
-            a.download = selectedPreset ? `${selectedPreset}_audio.mp3` : "processed_audio.mp3";
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
+            // Start Polling
+            setTaskId(data.task_id);
+            setQueuePosition(data.queue_position);
+            setEstimatedWait(data.estimated_wait_seconds);
+            setStatusMessage(data.message || "Queued...");
 
         } catch (err: any) {
             setError(err.message || "Processing failed");
-        } finally {
             setProcessing(false);
         }
     };
@@ -206,10 +368,18 @@ export default function AudioToolsSection() {
     const togglePlay = () => {
         if (wavesurfer.current) {
             wavesurfer.current.playPause();
+            // Resume context if suspended (browser autoplay policy)
+            if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+                audioContextRef.current.resume();
+            }
         }
     };
 
-    const updateEffect = (key: keyof EffectState, value: number) => {
+    const toggleEffect = (key: keyof EffectState) => {
+        setEffects(prev => ({ ...prev, [key]: !prev[key as any] }));
+    };
+
+    const updateSlider = (key: keyof EffectState, value: number) => {
         setEffects(prev => ({ ...prev, [key]: value }));
     };
 
@@ -245,21 +415,24 @@ export default function AudioToolsSection() {
                             <div className="text-center">
                                 <Upload size={48} className="text-slate-500 mx-auto mb-4" />
                                 <p className="text-slate-300 font-medium">Drag & drop files</p>
-                                <p className="text-slate-500 text-sm mt-2">Video or Audio (Max 700MB)</p>
+                                <p className="text-slate-500 text-sm mt-2">Video/Audio (Max 700MB, 3 mins)</p>
                             </div>
                         )}
                     </div>
 
                     {/* Upload Progress */}
-                    {uploadProgress > 0 && uploadProgress < 100 && (
+                    {uploadProgress > 0 && (
                         <div className="mt-4">
                             <div className="flex justify-between text-xs text-slate-400 mb-1">
-                                <span>Uploading...</span>
+                                <span>{uploadProgress === 100 ? "Processing..." : "Uploading..."}</span>
                                 <span>{uploadProgress}%</span>
                             </div>
                             <div className="w-full bg-slate-800 rounded-full h-2">
                                 <div
-                                    className="bg-gradient-to-r from-rose-500 to-pink-500 h-2 rounded-full transition-all duration-300"
+                                    className={`h-2 rounded-full transition-all duration-300 ${uploadProgress === 100
+                                        ? "bg-emerald-500 animate-pulse"
+                                        : "bg-gradient-to-r from-rose-500 to-pink-500"
+                                        }`}
                                     style={{ width: `${uploadProgress}%` }}
                                 />
                             </div>
@@ -274,7 +447,7 @@ export default function AudioToolsSection() {
                             {/* Waveform */}
                             <div className="mb-6 bg-slate-950/50 rounded-xl p-4 border border-slate-800">
                                 <div ref={waveformRef} className="w-full" />
-                                <div className="flex justify-center mt-4">
+                                <div className="flex justify-center mt-4 gap-4 items-center">
                                     <button
                                         onClick={togglePlay}
                                         className="bg-rose-500 hover:bg-rose-400 text-white p-4 rounded-full shadow-lg shadow-rose-500/30 transition-all hover:scale-105"
@@ -284,71 +457,138 @@ export default function AudioToolsSection() {
                                 </div>
                             </div>
 
-                            {/* Preset Selection */}
+                            {/* Real-time Adjustments */}
+                            <div className="mb-8">
+                                <h4 className="text-sm font-bold text-emerald-400 mb-3 flex items-center gap-2">
+                                    <Activity size={16} /> Real-Time Adjustments (Instant)
+                                </h4>
+                                <div className="grid md:grid-cols-2 gap-4 bg-slate-950/30 p-4 rounded-xl border border-slate-800/50">
+
+                                    {/* Volume Slider */}
+                                    <div>
+                                        <div className="flex items-center justify-between mb-2">
+                                            <label className="text-sm font-bold text-slate-300 flex items-center gap-2">
+                                                <Volume2 size={16} /> Volume Gain
+                                            </label>
+                                            <span className="text-xs font-mono text-rose-400">{effects.volume > 0 ? '+' : ''}{effects.volume} dB</span>
+                                        </div>
+                                        <input
+                                            type="range"
+                                            min="-10"
+                                            max="10"
+                                            step="1"
+                                            value={effects.volume}
+                                            onChange={(e) => updateSlider('volume', parseInt(e.target.value))}
+                                            className="w-full accent-rose-500 h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer"
+                                        />
+                                    </div>
+
+                                    {/* Clarity Slider */}
+                                    <div>
+                                        <div className="flex items-center justify-between mb-2">
+                                            <label className="text-sm font-bold text-slate-300 flex items-center gap-2">
+                                                <Sliders size={16} /> Clarity / Crispness
+                                            </label>
+                                            <span className="text-xs font-mono text-violet-400">{effects.clarity}%</span>
+                                        </div>
+                                        <input
+                                            type="range"
+                                            min="0"
+                                            max="100"
+                                            value={effects.clarity}
+                                            onChange={(e) => updateSlider('clarity', parseInt(e.target.value))}
+                                            className="w-full accent-violet-500 h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Heavy Processing (Toggles) */}
                             <div className="mb-6">
+                                <h4 className="text-sm font-bold text-slate-300 mb-3 flex items-center gap-2">
+                                    <Zap size={16} className="text-yellow-400" /> Deep Processing (Applied on Download)
+                                </h4>
+
+                                {/* DeNoise Ultra Separate */}
+                                <div className="mb-4">
+                                    <button
+                                        onClick={() => toggleEffect('denoise_ultra')}
+                                        disabled={processing}
+                                        className={`w-full flex items-center justify-between font-bold py-3 px-5 rounded-xl transition-all duration-200 ${effects.denoise_ultra
+                                            ? "bg-gradient-to-r from-violet-600 to-purple-600 text-white ring-2 ring-violet-400/60 shadow-lg shadow-violet-500/30"
+                                            : "bg-slate-800 border border-slate-700 text-slate-300 hover:border-violet-500/50 hover:text-white"
+                                            } disabled:opacity-50`}
+                                    >
+                                        <div className="flex items-center gap-2">
+                                            <Sparkles size={18} className={effects.denoise_ultra ? "text-yellow-300 fill-yellow-300" : "text-slate-400"} />
+                                            <span>DeNoise Ultra (AI)</span>
+                                        </div>
+                                        {effects.denoise_ultra ? <ToggleRight size={24} /> : <ToggleLeft size={24} className="text-slate-500" />}
+                                    </button>
+                                </div>
+
+                                {/* Grid of Toggles */}
+                                <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+                                    <ToggleButton
+                                        label="Spectral Denoise"
+                                        active={effects.advanced_noise_reduction}
+                                        onClick={() => toggleEffect('advanced_noise_reduction')}
+                                    />
+                                    <ToggleButton
+                                        label="Noise Removal"
+                                        active={effects.noise_reduction}
+                                        onClick={() => toggleEffect('noise_reduction')}
+                                    />
+                                    <ToggleButton
+                                        label="Fix Echo"
+                                        active={effects.fix_echo}
+                                        onClick={() => toggleEffect('fix_echo')}
+                                    />
+                                    <ToggleButton
+                                        label="Enhance Voice"
+                                        active={effects.enhance_voice}
+                                        onClick={() => toggleEffect('enhance_voice')}
+                                    />
+                                    <ToggleButton
+                                        label="Breath Removal"
+                                        active={effects.breath_removal}
+                                        onClick={() => toggleEffect('breath_removal')}
+                                    />
+                                    <ToggleButton
+                                        label="Hum Removal"
+                                        active={effects.hum_removal}
+                                        onClick={() => toggleEffect('hum_removal')}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Preset Selection (Optional Overlay) */}
+                            <div className="mb-6 opacity-80">
                                 <div className="flex items-center justify-between mb-3">
-                                    <h4 className="text-sm font-bold text-slate-300">One-Click Presets</h4>
+                                    <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Quick Presets</h4>
                                     {selectedPreset && (
                                         <button onClick={clearPreset} className="text-xs text-rose-400 hover:text-rose-300 flex items-center gap-1">
-                                            <X size={14} /> Clear Preset
+                                            <X size={14} /> Clear
                                         </button>
                                     )}
                                 </div>
-                                <div className="grid grid-cols-2 gap-3">
+                                <div className="grid grid-cols-4 gap-2">
                                     {presets.map((preset) => {
                                         const Icon = preset.icon;
                                         const isSelected = selectedPreset === preset.id;
-                                        const isDisabled = selectedPreset && selectedPreset !== preset.id;
-
                                         return (
                                             <button
                                                 key={preset.id}
                                                 onClick={() => handlePresetClick(preset.id)}
-                                                disabled={isDisabled || processing}
-                                                className={`flex items-center gap-2 font-bold py-3 px-4 rounded-xl transition-all ${isSelected
-                                                    ? `bg-gradient-to-r ${preset.gradient} text-white ring-2 ring-white/50`
-                                                    : isDisabled
-                                                        ? 'bg-slate-800 text-slate-600 cursor-not-allowed'
-                                                        : `bg-gradient-to-r ${preset.gradient} hover:opacity-80 text-white`
-                                                    } disabled:opacity-50`}
+                                                className={`flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-lg transition-all text-xs ${isSelected
+                                                    ? `bg-gradient-to-r ${preset.gradient} text-white`
+                                                    : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                                                    }`}
                                             >
-                                                <Icon size={18} /> {preset.label}
+                                                <Icon size={14} /> {preset.label}
                                             </button>
                                         );
                                     })}
-                                </div>
-                            </div>
-
-                            {/* Manual Effects */}
-                            <div className="mb-6">
-                                <h4 className="text-sm font-bold text-slate-300 mb-3">
-                                    Manual Effects {selectedPreset && <span className="text-xs text-slate-500">(Combined with {selectedPreset})</span>}
-                                </h4>
-                                <div className="grid sm:grid-cols-2 gap-4 mb-6">
-                                    <EffectControl label="Noise Removal" icon={Volume2} value={effects.noise_reduction} onChange={(v) => updateEffect('noise_reduction', v)} />
-                                    <EffectControl label="Fix Echo / Reverb" icon={Activity} value={effects.fix_echo} onChange={(v) => updateEffect('fix_echo', v)} />
-                                    <EffectControl label="Enhance Voice" icon={Mic} value={effects.enhance_voice} onChange={(v) => updateEffect('enhance_voice', v)} />
-                                    <EffectControl label="Breath Removal" icon={Wind} value={effects.breath_removal} onChange={(v) => updateEffect('breath_removal', v)} />
-                                    <EffectControl label="Adv. Noise Reduction" icon={Sparkles} value={effects.advanced_noise_reduction} onChange={(v) => updateEffect('advanced_noise_reduction', v)} />
-                                    <EffectControl label="Hum / Buzz Removal" icon={Activity} value={effects.hum_removal} onChange={(v) => updateEffect('hum_removal', v)} />
-                                </div>
-
-                                <div className="mb-6">
-                                    <div className="flex items-center justify-between mb-2">
-                                        <label className="text-sm font-bold text-slate-300 flex items-center gap-2">
-                                            <Music size={16} /> Volume Gain
-                                        </label>
-                                        <span className="text-xs font-mono text-rose-400">{effects.volume > 0 ? '+' : ''}{effects.volume} dB</span>
-                                    </div>
-                                    <input
-                                        type="range"
-                                        min="-10"
-                                        max="10"
-                                        step="1"
-                                        value={effects.volume}
-                                        onChange={(e) => updateEffect('volume', parseInt(e.target.value))}
-                                        className="w-full accent-rose-500 h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer"
-                                    />
                                 </div>
                             </div>
 
@@ -356,10 +596,26 @@ export default function AudioToolsSection() {
                             <button
                                 onClick={handleDownload}
                                 disabled={processing}
-                                className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white font-bold py-4 rounded-xl shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                                className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white font-bold py-4 rounded-xl shadow-lg shadow-emerald-500/20 flex flex-col items-center justify-center gap-1 transition-all disabled:opacity-80"
                             >
-                                {processing ? <Loader2 className="animate-spin" /> : <Download size={20} />}
-                                Download Result
+                                {processing ? (
+                                    <>
+                                        <div className="flex items-center gap-2">
+                                            <Loader2 className="animate-spin" />
+                                            <span>{statusMessage}</span>
+                                        </div>
+                                        {estimatedWait && (
+                                            <span className="text-xs font-normal opacity-90">
+                                                Est. wait: {Math.ceil(estimatedWait / 60)} min
+                                            </span>
+                                        )}
+                                    </>
+                                ) : (
+                                    <div className="flex items-center gap-2">
+                                        <Download size={20} />
+                                        <span>Process & Download Result</span>
+                                    </div>
+                                )}
                             </button>
                         </div>
                     ) : (
@@ -380,26 +636,17 @@ export default function AudioToolsSection() {
     );
 }
 
-function EffectControl({ label, icon: Icon, value, onChange }: { label: string, icon: any, value: number, onChange: (v: number) => void }) {
+function ToggleButton({ label, active, onClick }: { label: string, active: boolean, onClick: () => void }) {
     return (
-        <div className={`p-4 rounded-xl border transition-all ${value > 0 ? "bg-rose-500/10 border-rose-500/50" : "bg-slate-800/50 border-slate-700"}`}>
-            <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-3">
-                    <div className={`p-2 rounded-lg ${value > 0 ? "bg-rose-500 text-white" : "bg-slate-700 text-slate-400"}`}>
-                        <Icon size={18} />
-                    </div>
-                    <span className={`font-bold text-sm ${value > 0 ? "text-white" : "text-slate-300"}`}>{label}</span>
-                </div>
-                <span className="text-xs font-mono text-slate-500">{value}%</span>
-            </div>
-            <input
-                type="range"
-                min="0"
-                max="100"
-                value={value}
-                onChange={(e) => onChange(parseInt(e.target.value))}
-                className="w-full accent-rose-500 h-2 bg-slate-900 rounded-lg appearance-none cursor-pointer"
-            />
-        </div>
+        <button
+            onClick={onClick}
+            className={`flex items-center justify-between px-4 py-3 rounded-xl border transition-all ${active
+                    ? "bg-indigo-500/20 border-indigo-500 text-indigo-100"
+                    : "bg-slate-800/50 border-slate-700 text-slate-400 hover:border-slate-600 hover:bg-slate-800"
+                }`}
+        >
+            <span className="text-sm font-medium">{label}</span>
+            {active ? <ToggleRight size={20} className="text-indigo-400" /> : <ToggleLeft size={20} />}
+        </button>
     );
 }

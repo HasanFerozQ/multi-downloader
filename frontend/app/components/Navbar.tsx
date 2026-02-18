@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, Download, Languages, Crown, Music } from "lucide-react";
+import { BarChart3, Download, Languages, Crown, Music, Minimize2, BookOpen } from "lucide-react";
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -10,7 +10,9 @@ export default function Navbar() {
     { name: "Video Analyzer", path: "/", icon: <BarChart3 size={18} /> },  // NEW HOMEPAGE
     { name: "5-in-1 Downloader", path: "/downloader", icon: <Download size={18} /> },  // MOVED
     { name: "Audio Tools", path: "/audio-tools", icon: <Music size={18} /> },
+    { name: "Compressor", path: "/compressor", icon: <Minimize2 size={18} /> },
     { name: "Convertors", path: "/convertors", icon: <Languages size={18} /> },
+    { name: "Blog", path: "/blog", icon: <BookOpen size={18} /> },
   ];
 
   return (

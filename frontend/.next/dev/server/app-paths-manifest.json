@@ -1,6 +1,4 @@
 {
   "/audio-tools/page": "app/audio-tools/page.js",
-  "/convertors/page": "app/convertors/page.js",
-  "/downloader/page": "app/downloader/page.js",
   "/page": "app/page.js"
 }

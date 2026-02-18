@@ -1,51 +1,53 @@
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException, BackgroundTasks # type: ignore
-from fastapi.responses import FileResponse, JSONResponse # type: ignore
-import shutil
+from fastapi import APIRouter, File, UploadFile, Form, HTTPException # type: ignore
+from fastapi.responses import JSONResponse, FileResponse # type: ignore
 import os
+import shutil
 import uuid
-import asyncio
-import subprocess
 from pathlib import Path
 import json
-from backend.services.video_processor import VideoProcessor # type: ignore 
+import asyncio
+import subprocess
+from celery.result import AsyncResult # type: ignore
+import redis # type: ignore
+from dotenv import load_dotenv # type: ignore
 
-router = APIRouter(prefix="/audio-tools", tags=["audio-tools"])
+# Import Celery app and task
+# Adjust import based on project structure. Assuming backend runs as module.
+try:
+    from backend.worker import celery, process_audio_task, run_audio_pipeline # type: ignore
+except ImportError:
+    # Fallback for local run without module structure
+    import sys
+    sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from worker import celery, process_audio_task, run_audio_pipeline # type: ignore
 
-@router.get("/debug")
-async def debug_env():
-    import platform
-    import os
-    from pathlib import Path
-    
-    ffmpeg_path = str(Path(__file__).parent.parent / "ffmpeg.exe") if platform.system() == "Windows" else (shutil.which("ffmpeg") or "ffmpeg")
-    
-    return {
-        "os": platform.system(),
-        "cwd": os.getcwd(),
-        "ffmpeg_path": ffmpeg_path,
-        "ffmpeg_exists": os.path.exists(ffmpeg_path) if platform.system() == "Windows" else True,
-        "temp_uploads_exists": os.path.exists("temp_uploads"),
-        "temp_outputs_exists": os.path.exists("temp_outputs")
-    }
+load_dotenv()
 
+router = APIRouter(
+    prefix="/audio-tools",
+    tags=["Audio Tools"]
+)
 
-# FFmpeg path - cross-platform compatible
-# On Windows: use local ffmpeg.exe in backend directory
-# On Linux/Production: use system-installed ffmpeg
-import shutil
-import platform
-
-if platform.system() == "Windows":
-    # Local ffmpeg.exe for Windows development
-    FFMPEG_PATH = str(Path(__file__).parent.parent / "ffmpeg.exe")
-else:
-    # System ffmpeg for Linux/Production
-    FFMPEG_PATH = shutil.which("ffmpeg") or "ffmpeg"
-
+# Configuration
 UPLOAD_DIR = Path("temp_uploads")
-UPLOAD_DIR.mkdir(exist_ok=True)
 OUTPUT_DIR = Path("temp_outputs")
-OUTPUT_DIR.mkdir(exist_ok=True)
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+# Redis for Queue Length
+REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+redis_client = redis.from_url(REDIS_URL)
+
+FFMPEG_PATH = "ffmpeg"
+if os.name == 'nt':
+    possible_paths = [
+        r"C:\ffmpeg\bin\ffmpeg.exe",
+        r"C:\Program Files\ffmpeg\bin\ffmpeg.exe",
+    ]
+    for p in possible_paths:
+        if os.path.exists(p):
+            FFMPEG_PATH = p
+            break
 
 def cleanup_file(path: str):
     try:
@@ -54,262 +56,209 @@ def cleanup_file(path: str):
     except Exception:
         pass
 
-@router.post("/extract-from-video")
-async def extract_from_video(file: UploadFile = File(...)):
-    """
-    Extract audio from an uploaded video file.
-    Default output format: mp3, 192k
-    """
+async def get_audio_duration(file_path: str) -> float:
+    """Get audio duration in seconds using ffprobe/ffmpeg"""
     try:
-        file_id = str(uuid.uuid4())
-        input_path = UPLOAD_DIR / f"{file_id}_{file.filename}"
-        output_path = OUTPUT_DIR / f"{file_id}.mp3"
-        
-        with open(input_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-            
-        # Use ffmpeg to extract audio
-        cmd = [
-            FFMPEG_PATH, "-i", str(input_path),
-            "-vn", "-acodec", "libmp3lame", "-q:a", "2", 
-            "-y", str(output_path)
-        ]
-        
-        print(f"Running command: {' '.join(cmd)}")
-        
-        result = await asyncio.to_thread(subprocess.run, cmd, capture_output=True, text=True) # type: ignore
-        stdout, stderr = result.stdout, result.stderr
-        return_code = result.returncode
-        
-        if return_code != 0:
-            error_msg = stderr if stderr else "No error output (stderr empty)"
-            print(f"FFmpeg failed with return code {return_code}. Error: {error_msg}")
-            raise HTTPException(status_code=500, detail=f"FFmpeg failed [{return_code}]: {error_msg}")
-        
-        cleanup_file(str(input_path))
-        
-        if not output_path.exists():
-             raise HTTPException(status_code=500, detail="Audio extraction failed: Output file not created")
-             
-        return FileResponse(output_path, media_type="audio/mpeg", filename=f"{Path(file.filename).stem}.mp3")
-
-    except HTTPException:
-        cleanup_file(str(input_path))
-        raise
+        cmd = [FFMPEG_PATH, "-i", file_path]
+        # type: ignore - subprocess.run typing issue
+        result = await asyncio.to_thread(subprocess.run, cmd, capture_output=True, text=True) 
+        import re
+        match = re.search(r"Duration: (\d{2}):(\d{2}):(\d{2}\.\d{2})", result.stderr)
+        if match:
+            h, m, s = map(float, match.groups())
+            return h * 3600 + m * 60 + s
     except Exception as e:
-        cleanup_file(str(input_path))
-        import traceback
-        tb = traceback.format_exc()
-        print(f"CRITICAL ERROR in extract_from_video:\n{tb}")
-        # Return full traceback detail temporarily for debugging
-        raise HTTPException(
-            status_code=500, 
-            detail=f"Server error [{type(e).__name__}]: {str(e)}\nTraceback: {tb}"
-        )
+        print(f"[WARNING] Duration check failed: {e}")
+    return 0.0
 
 @router.post("/process-audio")
 async def process_audio(
     file: UploadFile = File(...),
-    effects: str = Form(...), # JSON string of effects or preset name
-    preview: bool = Form(False)
+    effects: str = Form(...),
+    preview: str = Form("false")
 ):
-    """
-    Apply audio effects to an uploaded audio file.
-    Effects: noise_reduction (0-100), fix_echo (0-100), enhance_voice (0-100), breath_removal (0-100), volume (-10 to 10), advanced_noise_reduction (0-100), hum_removal (0-100)
-    Presets: 'podcast', 'cave', 'radio', 'phone'
-    If preview is True, only processes first 30 seconds.
-    """
-    input_path = None
-    output_path = None
     try:
         effects_data = json.loads(effects)
-        print(f"[DEBUG] Received effects data: {effects_data}")
+        print(f"[DEBUG] /process-audio received effects: {effects_data}")
+        is_preview = preview.lower() == "true"
         
         file_id = str(uuid.uuid4())
-        input_path = UPLOAD_DIR / f"{file_id}_{file.filename}"
-        output_path = OUTPUT_DIR / f"processed_{file_id}.mp3"
+        input_filename = f"{file_id}_{file.filename}"
+        input_path = UPLOAD_DIR / input_filename
         
+        # Save file
         with open(input_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
             
-        # Build filters list - always process manual effects, then prepend preset if selected
-        filters = []
-        preset = effects_data.get("preset")
+        # 1. Validate Duration (Hard Limit 3 mins)
+        duration_sec = await get_audio_duration(str(input_path))
+        if duration_sec > 180:
+             cleanup_file(str(input_path))
+             raise HTTPException(status_code=400, detail="Audio file too long. Maximum allowed is 3 minutes (180s).")
+
+        # 2. Enqueue Task
+        output_filename = f"processed_{file_id}.mp3"
+        output_path = OUTPUT_DIR / output_filename
         
-        # ALWAYS process manual effects (whether preset is selected or not)
-        # 1. Noise Removal (Highpass filter) - INCREASED RANGE
-        # Strength 0-100 maps to frequency 50Hz - 800Hz
-        if effects_data.get("noise_reduction"):
-            strength = float(effects_data.get("noise_reduction", 0))
-            if strength > 0:
-                freq = 50 + (strength * 7.5) # 50Hz to 800Hz
-                filters.append(f"highpass=f={freq}")
-
-        # 2. Fix Echo / Reverb (Gate) - PROFESSIONAL DEREVERB
-        # Strength 0-100 maps to dereverb intensity
-        if effects_data.get("fix_echo"):
-            strength = float(effects_data.get("fix_echo", 0))
-            if strength > 0:
-                 # Combine afftdn in speech mode + aggressive gating
-                 # afftdn with track noise (tn=1) for adaptive noise reduction
-                 nr_amount = 10 + (strength * 0.3) # 10-40dB
-                 threshold = 0.001 + (strength / 100.0) # 0.001 to 1.0
-                 filters.append(f"afftdn=nr={nr_amount}:nf=-20:tn=1,agate=threshold={threshold}:ratio=4:attack=5:release=50")
-
-        # 3. Enhance Voice (Equalizer) - PROFESSIONAL VOICE ENHANCEMENT
-        # Clarity 0-100 maps to presence boost + low-cut
-        if effects_data.get("enhance_voice"):
-            clarity = float(effects_data.get("enhance_voice", 0))
-            if clarity > 0:
-                # Presence boost at 2.5kHz-5kHz, cut mud at 200-400Hz
-                presence_gain = clarity / 6.67 # 0 to 15dB
-                mud_cut = -1 * (clarity / 20.0) # 0 to -5dB
-                filters.append(f"equalizer=f=3000:t=q:w=1:g={presence_gain},equalizer=f=300:t=q:w=2:g={mud_cut},highpass=f=80")
-
-        # 4. Breath Removal (Gate) - PROFESSIONAL BREATH GATE
-        # Sensitivity 0-100 maps to threshold
-        if effects_data.get("breath_removal"):
-             sensitivity = float(effects_data.get("breath_removal", 0))
-             if sensitivity > 0:
-                 # Very fast attack, medium release for breath removal
-                 threshold = 0.005 + (sensitivity / 200.0) # 0.005 to 0.5
-                 filters.append(f"highpass=f=150,agate=threshold={threshold}:ratio=10:attack=1:release=50:range=-60dB")
-
-        # 5. Volume
-        # Gain -10 to 10 dB
-        if effects_data.get("volume") is not None:
-            vol = float(effects_data.get("volume", 0))
-            if vol != 0:
-                filters.append(f"volume={vol}dB")
-
-        # 6. Advanced Noise Reduction (FFT-based) - PROFESSIONAL GRADE
-        # Strength 0-100 maps to noise reduction level
-        if effects_data.get("advanced_noise_reduction"):
-            adv_strength = float(effects_data.get("advanced_noise_reduction", 0))
-            if adv_strength > 0:
-                # Use afftdn (FFT denoiser) + anlmdn (non-local means) for best results
-                # afftdn: nr=noise reduction amount, nf=noise floor, tn=track noise
-                nr_level = 15 + (adv_strength * 0.5) # 15-65dB
-                # anlmdn: s=strength (higher = more smoothing)
-                anlmdn_strength = adv_strength / 10.0 # 0-10
-                filters.append(f"afftdn=nr={nr_level}:nf=-25:tn=1,anlmdn=s={anlmdn_strength}")
-
-        # 7. Hum / Buzz Removal (Notch filters) - PROFESSIONAL DEHUMMER
-        # Strength 0-100. Remove 50Hz/60Hz + harmonics
-        if effects_data.get("hum_removal"):
-             hum_strength = float(effects_data.get("hum_removal", 0))
-             if hum_strength > 0:
-                 # Remove fundamental frequencies + harmonics
-                 # 50Hz (EU) + harmonics: 100Hz, 150Hz
-                 # 60Hz (US) + harmonics: 120Hz, 180Hz
-                 width = 5 + (hum_strength / 10.0) # Adaptive width based on strength
-                 filters.append(f"highpass=f=35,lowpass=f=15000,notch=f=50:w={width},notch=f=60:w={width},notch=f=100:w={width},notch=f=120:w={width},notch=f=150:w={width},notch=f=180:w={width}")
-
-        # NOW prepend preset filters if a preset is selected
-        # This allows combining preset + manual effects
-        if preset:
-            preset_filters = []
-            if preset == "podcast":
-                preset_filters = [
-                    "highpass=f=80",
-                    "compand=attacks=0.3:decays=0.8:points=-80/-80|-45/-15|-27/-9|0/-7|20/-7:soft-knee=6",
-                    "equalizer=f=3000:t=q:w=1:g=6",
-                    "equalizer=f=150:t=q:w=1:g=-3"
-                ]
-            elif preset == "cave":
-                preset_filters = [
-                    "aecho=0.8:0.88:60:0.4",
-                    "aecho=0.8:0.88:1000:0.3",
-                    "equalizer=f=1000:t=q:w=2:g=-4"
-                ]
-            elif preset == "radio":
-                preset_filters = [
-                    "highpass=f=300",
-                    "lowpass=f=3000",
-                    "compand=attacks=0.1:decays=0.4:points=-80/-80|-50/-50|-30/-30|-20/-20|0/-10:soft-knee=6",
-                    "equalizer=f=2000:t=q:w=1:g=3"
-                ]
-            elif preset == "phone":
-                preset_filters = [
-                    "highpass=f=300",
-                    "lowpass=f=3400",
-                    "equalizer=f=1000:t=q:w=2:g=-6"
-                ]
-            # Prepend preset filters to manual filters
-            filters = preset_filters + filters
-
-        print(f"[DEBUG] Total filters to apply: {len(filters)}")
-        print(f"[DEBUG] Filter list: {filters}")
+        # Submit to Celery
+        task = process_audio_task.delay(str(input_path), str(output_path), effects_data)
         
-        filter_str = ",".join(filters) if filters else "anull"
-        print(f"[DEBUG] Final filter string: {filter_str}")
+        # 3. Estimate Queue Position
+        # Queue length = tasks in 'celery' list
+        queue_len = redis_client.llen("celery")
+        # Estimated wait time: (queue_len * 30s) + 30s processing
+        est_wait = (queue_len * 30) + 30 
         
-        cmd = [FFMPEG_PATH, "-i", str(input_path)]
+        return {
+            "task_id": task.id,
+            "status": "queued",
+            "queue_position": queue_len + 1, # +1 for self
+            "estimated_wait_seconds": est_wait,
+            "message": f"File received! You are #{queue_len + 1} in line."
+        }
         
-        if preview:
-            cmd.extend(["-t", "30"]) # Process only 30 seconds for preview
-            
-        cmd.extend([
-            "-af", filter_str,
-            "-y", str(output_path)
-        ])
-        
-        print(f"[DEBUG] FFmpeg command: {' '.join(cmd)}")
-        result = await asyncio.to_thread(subprocess.run, cmd, capture_output=True, text=True) # type: ignore
-        print(f"[DEBUG] FFmpeg return code: {result.returncode}")
-        if result.stderr:
-            stderr_str: str = str(result.stderr) if result.stderr else ""
-            stderr_preview = stderr_str[:500]  # type: ignore
-            print(f"[DEBUG] FFmpeg stderr: {stderr_preview}")
-        
-        if not output_path.exists():
-             error_msg = result.stderr if result.stderr else "No error output"
-             print(f"FFmpeg failed: {error_msg}")
-             raise HTTPException(status_code=500, detail=f"Audio processing failed: {error_msg}")
-
-        return FileResponse(output_path, media_type="audio/mpeg", filename=f"processed_{file.filename}")
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-    finally:
-        if input_path: cleanup_file(str(input_path))
-
-@router.get("/extract-from-link")
-async def extract_from_link(url: str):
-    """
-    Extract audio from a supported link (YouTube, TikTok, etc.)
-    """
-    try:
-        file_id = str(uuid.uuid4())
-        output_template = str(OUTPUT_DIR / f"{file_id}.%(ext)s")
-        
-        cmd = [
-            "yt-dlp",
-            "-x", # Extract audio
-            "--audio-format", "mp3",
-            "--audio-quality", "192K",
-            "-o", output_template,
-            url
-        ]
-        
-        result = await asyncio.to_thread(subprocess.run, cmd, capture_output=True, text=True) # type: ignore
-        
-        if result.returncode != 0:
-            error_msg = result.stderr if result.stderr else "No error output"
-            raise HTTPException(status_code=400, detail=f"Download failed: {error_msg}")
-            
-        # yt-dlp might output .mp3 directly
-        final_path = OUTPUT_DIR / f"{file_id}.mp3"
-        
-        if not final_path.exists():
-             raise HTTPException(status_code=500, detail="Audio file not found after extraction")
-             
-        # Return the file directly for now, or a download URL if we had static serving
-        # For this app, we return the file stream
-        return FileResponse(final_path, media_type="audio/mpeg", filename="extracted_audio.mp3")
-
     except HTTPException:
         raise
     except Exception as e:
+        cleanup_file(str(input_path)) if 'input_path' in locals() else None
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/preview-audio")
+async def preview_audio(
+    file: UploadFile = File(...),
+    effects: str = Form(...)
+):
+    try:
+        effects_data = json.loads(effects)
+        
+        file_id = str(uuid.uuid4())
+        input_filename = f"preview_in_{file_id}_{file.filename}"
+        input_path = UPLOAD_DIR / input_filename
+        
+        # Save file
+        with open(input_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+            
+        # 1. Trim to 5s if longer
+        trimmed_path = str(input_path) + "_trim.mp3"
+        duration_sec = await get_audio_duration(str(input_path))
+        if duration_sec > 5.0:
+            cmd = [FFMPEG_PATH, "-y", "-i", str(input_path), "-t", "5", "-c", "copy", trimmed_path]
+            await asyncio.to_thread(subprocess.run, cmd, check=True, capture_output=True)
+            cleanup_file(str(input_path))
+            input_path = Path(trimmed_path)
+
+        # 2. Run Pipeline Synchronously
+        output_filename = f"preview_out_{file_id}.mp3"
+        output_path = OUTPUT_DIR / output_filename
+        
+        # Use run_audio_pipeline directly (blocking call, but short duration)
+        # Offload to thread to keep async loop unblocked
+        await asyncio.to_thread(
+            run_audio_pipeline, 
+            str(input_path), 
+            str(output_path), 
+            effects_data
+        )
+        
+        cleanup_file(str(input_path))
+        
+        return FileResponse(output_path, filename="preview.mp3")
+
+    except Exception as e:
+        cleanup_file(str(input_path)) if 'input_path' in locals() else None
+        raise HTTPException(status_code=500, detail=f"Preview failed: {str(e)}")
+
+@router.get("/status/{task_id}")
+async def get_status(task_id: str):
+    """Check status of background processing task"""
+    try:
+        result = AsyncResult(task_id, app=celery)
+        
+        response = {
+            "task_id": task_id,
+            "status": result.state,
+        }
+        
+        if result.state == 'PENDING':
+             # Calculate refreshed queue position if needed, or just return basic info
+             response["progress"] = 0
+             response["message"] = "Waiting in queue..."
+             
+        elif result.state == 'STARTED':
+            response["progress"] = 0
+            response["message"] = "Processing started..."
+            if result.info:
+                response.update(result.info) # status, progress
+                
+        elif result.state == 'PROCESSING':
+             # Custom state for progress updates
+             if result.info:
+                response.update(result.info)
+                
+        elif result.state == 'SUCCESS':
+            response["progress"] = 100
+            response["message"] = "Complete!"
+            # Return download URL (handled by separate endpoint or direct file access)
+            # For simplicity, we can let frontend request the file via another endpoint or directly if static
+            # But let's add a download endpoint
+            response["result_url"] = f"/audio-tools/download/{task_id}"
+            
+        elif result.state == 'FAILURE':
+            response["status"] = "FAILURE"
+            response["error"] = str(result.result)
+            
+        return response
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/download/{task_id}")
+async def download_result(task_id: str):
+    """Download processed file"""
+    # Find file logic
+    # In process_audio, we defined output path based on file_id, but task_id is different.
+    # Actually, process_audio defines output path.
+    # We need to map task_id to file path.
+    # Or, rely on the task return value if stored.
+    
+    result = AsyncResult(task_id, app=celery)
+    if result.state == 'SUCCESS':
+        output_path = result.result.get("path")
+        if output_path and os.path.exists(output_path):
+            return FileResponse(output_path, filename="processed_audio.mp3")
+            
+    raise HTTPException(status_code=404, detail="File not found or processing not complete.")
+
+@router.post("/extract-from-video")
+async def extract_from_video(file: UploadFile = File(...)):
+    # Existing synchronous extraction (lightweight for now, or move to task later)
+    # Keeping existing logic for now as requested user focus is on audio processing queue
+    try:
+        file_id = str(uuid.uuid4())
+        input_filename = f"{file_id}_{file.filename}"
+        input_path = UPLOAD_DIR / input_filename
+        
+        with open(input_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+        output_filename = f"extracted_{file_id}.wav"
+        output_path = UPLOAD_DIR / output_filename # Save to uploads as it's input for next step
+
+        cmd = [
+            FFMPEG_PATH, "-y",
+            "-i", str(input_path),
+            "-vn", "-acodec", "pcm_s16le", "-ar", "44100", "-ac", "2",
+            str(output_path)
+        ]
+        
+        subprocess.run(cmd, check=True, capture_output=True)
+        
+        # Cleanup input video
+        cleanup_file(str(input_path))
+        
+        return FileResponse(str(output_path), filename="extracted.wav")
+        
+    except Exception as e:
+        cleanup_file(str(input_path)) if 'input_path' in locals() else None
+        raise HTTPException(status_code=500, detail=f"Extraction failed: {str(e)}")
