@@ -2,24 +2,49 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useDropzone } from "react-dropzone";
-import { Upload, Download, Loader2, Mic, Music, Volume2, Wind, Sparkles, Activity, Play, Pause, Radio, Phone, Podcast, Mountain, X, Zap, Sliders, ToggleLeft, ToggleRight } from "lucide-react";
+import { Upload, Download, Loader2, Music, Sparkles, Activity, Play, Pause, Radio, Phone, Podcast, Mountain, X, Zap, ToggleLeft, ToggleRight } from "lucide-react";
 import { API_URL } from "@/config/api";
 import WaveSurfer from 'wavesurfer.js';
 
-// Effect state now mixes booleans (toggles) and numbers (real-time sliders)
+// Effect state — all toggles for backend deep processing
 type EffectState = {
-    // Backend Toggles (Heavy Processing)
-    noise_reduction: boolean; // Was number
-    fix_echo: boolean;        // Was number
-    enhance_voice: boolean;   // Was number
-    breath_removal: boolean;  // Was number
-    advanced_noise_reduction: boolean; // Was number
-    hum_removal: boolean;     // Was number
-    denoise_ultra: boolean;   // Already boolean
+    noise_reduction: boolean;
+    fix_echo: boolean;
+    enhance_voice: boolean;
+    breath_removal: boolean;
+    advanced_noise_reduction: boolean;
+    hum_removal: boolean;
+    denoise_ultra: boolean;
+};
 
-    // Real-time Web Audio API (Sliders)
-    volume: number;           // +/- dB
-    clarity: number;          // 0-100%
+// Preset definitions: each preset maps to a set of effects + FFmpeg filter
+type PresetConfig = {
+    label: string;
+    effects: Partial<EffectState>;
+    ffmpeg_preset?: string; // extra FFmpeg filter chain sent to backend
+};
+
+const PRESET_CONFIGS: Record<string, PresetConfig> = {
+    podcast: {
+        label: 'Podcast',
+        effects: { noise_reduction: true, enhance_voice: true, hum_removal: true },
+        ffmpeg_preset: 'podcast',
+    },
+    cave: {
+        label: 'Cave',
+        effects: {},
+        ffmpeg_preset: 'cave',
+    },
+    radio: {
+        label: 'Radio',
+        effects: { noise_reduction: true, hum_removal: true },
+        ffmpeg_preset: 'radio',
+    },
+    phone: {
+        label: 'Phone',
+        effects: {},
+        ffmpeg_preset: 'phone',
+    },
 };
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
@@ -42,15 +67,7 @@ export default function AudioToolsSection() {
     const wavesurfer = useRef<WaveSurfer | null>(null);
     const [isPlaying, setIsPlaying] = useState(false);
 
-    // Web Audio API Refs
-    const audioContextRef = useRef<AudioContext | null>(null);
-    const sourceNodeRef = useRef<MediaElementAudioSourceNode | null>(null);
-    const gainNodeRef = useRef<GainNode | null>(null);
-    const compressorNodeRef = useRef<DynamicsCompressorNode | null>(null);
-    const highpassNodeRef = useRef<BiquadFilterNode | null>(null);
-
     const [effects, setEffects] = useState<EffectState>({
-        // Toggles -> Default Off
         noise_reduction: false,
         fix_echo: false,
         enhance_voice: false,
@@ -58,54 +75,7 @@ export default function AudioToolsSection() {
         advanced_noise_reduction: false,
         hum_removal: false,
         denoise_ultra: false,
-
-        // Sliders -> Default 0
-        volume: 0,
-        clarity: 0,
     });
-
-    // Web Audio API setup is done inside the WaveSurfer 'ready' event (see below)
-    // to guarantee the media element exists before we try to connect the audio graph.
-
-
-    // --- Real-time Effect Updates ---
-
-    // 1. Volume Change (GainNode)
-    useEffect(() => {
-        if (!gainNodeRef.current || !audioContextRef.current) return;
-
-        // Map dB to linear gain: 10^(dB/20)
-        // effects.volume is -10 to +10
-        const gainValue = Math.pow(10, effects.volume / 20);
-
-        // Smooth transition
-        gainNodeRef.current.gain.setTargetAtTime(gainValue, audioContextRef.current.currentTime, 0.1);
-
-    }, [effects.volume]);
-
-    // 2. Clarity Change (Compressor + Highpass)
-    useEffect(() => {
-        if (!compressorNodeRef.current || !highpassNodeRef.current || !audioContextRef.current) return;
-
-        const percent = effects.clarity; // 0-100
-
-        // Compressor Threshold: Lower threshold = more compression = "punchier/clearer"
-        // 0% -> -10dB (barely active), 100% -> -40dB (squashed/loud)
-        const threshold = -10 - (percent * 0.3);
-        compressorNodeRef.current.threshold.setTargetAtTime(threshold, audioContextRef.current.currentTime, 0.1);
-
-        // Highpass Filter: Remove muddiness
-        // 0% -> 0Hz, 100% -> 200Hz
-        const cutoff = percent * 2;
-        highpassNodeRef.current.frequency.setTargetAtTime(cutoff, audioContextRef.current.currentTime, 0.1);
-
-        // Makeup Gain (roughly): Compressor reduces volume, so we boost slightly
-        // We can do this via the knee or ratio, keeping it simple
-        compressorNodeRef.current.ratio.value = 1 + (percent / 20); // 1 to 6 ratio
-        compressorNodeRef.current.knee.value = 40 - (percent * 0.3);
-
-    }, [effects.clarity]);
-
 
     // Polling Effect
     useEffect(() => {
@@ -174,12 +144,7 @@ export default function AudioToolsSection() {
 
     useEffect(() => {
         if (extractedAudioUrl && waveformRef.current) {
-            // Tear down previous instance and audio graph
             if (wavesurfer.current) wavesurfer.current.destroy();
-            if (sourceNodeRef.current) {
-                sourceNodeRef.current.disconnect();
-                sourceNodeRef.current = null;
-            }
 
             wavesurfer.current = WaveSurfer.create({
                 container: waveformRef.current,
@@ -189,68 +154,16 @@ export default function AudioToolsSection() {
                 barWidth: 2,
                 barGap: 3,
                 height: 100,
-                // Required for Web Audio API integration:
-                backend: 'MediaElement',
             });
 
             wavesurfer.current.load(extractedAudioUrl);
 
             wavesurfer.current.on('ready', () => {
-                console.log('[DEBUG] Waveform ready — setting up Web Audio API graph');
                 setUploadProgress(0);
-
-                // --- Web Audio API Graph Setup ---
-                // We MUST do this here (not in a separate useEffect) because
-                // getMediaElement() only returns a valid element after 'ready' fires.
-                const mediaElement = wavesurfer.current?.getMediaElement();
-                if (!mediaElement) {
-                    console.warn('[AudioTools] No media element after ready — skipping audio graph');
-                    return;
-                }
-
-                // Create AudioContext once
-                if (!audioContextRef.current) {
-                    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-                    audioContextRef.current = new AudioContextClass();
-                }
-                const ctx = audioContextRef.current;
-
-                // Create nodes (idempotent — reuse if already created)
-                if (!gainNodeRef.current) gainNodeRef.current = ctx.createGain();
-                if (!compressorNodeRef.current) compressorNodeRef.current = ctx.createDynamicsCompressor();
-                if (!highpassNodeRef.current) {
-                    highpassNodeRef.current = ctx.createBiquadFilter();
-                    highpassNodeRef.current.type = 'highpass';
-                    highpassNodeRef.current.frequency.value = 0;
-                }
-
-                // Create source node (must be fresh per media element)
-                try {
-                    sourceNodeRef.current = ctx.createMediaElementSource(mediaElement);
-                    console.log('[AudioTools] MediaElementSource created successfully');
-                } catch (e) {
-                    console.warn('[AudioTools] MediaElementSource already created:', e);
-                }
-
-                // Connect: Source -> Highpass -> Compressor -> Gain -> Output
-                if (sourceNodeRef.current && highpassNodeRef.current && compressorNodeRef.current && gainNodeRef.current) {
-                    sourceNodeRef.current
-                        .connect(highpassNodeRef.current)
-                        .connect(compressorNodeRef.current)
-                        .connect(gainNodeRef.current)
-                        .connect(ctx.destination);
-                    console.log('[AudioTools] Audio graph connected — sliders are now live');
-                }
             });
 
             wavesurfer.current.on('finish', () => setIsPlaying(false));
-            wavesurfer.current.on('play', () => {
-                setIsPlaying(true);
-                // Resume context on play (browser autoplay policy)
-                if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
-                    audioContextRef.current.resume();
-                }
-            });
+            wavesurfer.current.on('play', () => setIsPlaying(true));
             wavesurfer.current.on('pause', () => setIsPlaying(false));
 
             return () => {
@@ -308,13 +221,52 @@ export default function AudioToolsSection() {
         }
     };
 
-    const handlePresetClick = (preset: string) => {
-        setSelectedPreset(preset);
-        // Preset logic could setup defaults here if needed
+    const handlePresetClick = (presetId: string) => {
+        if (selectedPreset === presetId) {
+            // Toggle off
+            setSelectedPreset(null);
+            // Reset effects to all-off
+            setEffects({
+                noise_reduction: false,
+                fix_echo: false,
+                enhance_voice: false,
+                breath_removal: false,
+                advanced_noise_reduction: false,
+                hum_removal: false,
+                denoise_ultra: false,
+            });
+        } else {
+            setSelectedPreset(presetId);
+            // Apply preset's effect overrides
+            const config = PRESET_CONFIGS[presetId];
+            if (config) {
+                setEffects(prev => ({
+                    ...prev,
+                    // Reset all toggles first, then apply preset
+                    noise_reduction: false,
+                    fix_echo: false,
+                    enhance_voice: false,
+                    breath_removal: false,
+                    advanced_noise_reduction: false,
+                    hum_removal: false,
+                    denoise_ultra: false,
+                    ...config.effects,
+                }));
+            }
+        }
     };
 
     const clearPreset = () => {
         setSelectedPreset(null);
+        setEffects({
+            noise_reduction: false,
+            fix_echo: false,
+            enhance_voice: false,
+            breath_removal: false,
+            advanced_noise_reduction: false,
+            hum_removal: false,
+            denoise_ultra: false,
+        });
     };
 
     const handleDownload = async () => {
@@ -331,25 +283,27 @@ export default function AudioToolsSection() {
             effectFormData.append("file", blob, "input.mp3");
 
             // Convert UI State to Backend API format
-            // Backend expects 0-100 for some values, so we map booleans to 100/0
-            const backendEffects = {
+            // volume and clarity are always hardcoded for best output quality
+            const backendEffects: Record<string, unknown> = {
                 noise_reduction: effects.noise_reduction ? 100 : 0,
                 fix_echo: effects.fix_echo ? 100 : 0,
                 enhance_voice: effects.enhance_voice ? 100 : 0,
                 breath_removal: effects.breath_removal ? 100 : 0,
                 advanced_noise_reduction: effects.advanced_noise_reduction ? 100 : 0,
                 hum_removal: effects.hum_removal ? 100 : 0,
-                denoise_ultra: effects.denoise_ultra, // boolean stays boolean in backend? Check backend. 
-                // Backend checks: if effects.get("denoise_ultra", False) -> boolean is fine.
-                // But others divide by 100.
-
-                volume: effects.volume, // Pass dB directly
-                clarity: effects.clarity, // Pass 0-100 directly
+                denoise_ultra: effects.denoise_ultra,
+                // Always boost volume +10dB and apply full clarity to compensate
+                // for any volume loss from noise reduction / processing effects
+                volume: 10,
+                clarity: 100,
             };
 
-            const effectsToSend = selectedPreset
-                ? { preset: selectedPreset, ...backendEffects }
-                : backendEffects;
+            // If a preset is selected, include its ffmpeg_preset key
+            if (selectedPreset && PRESET_CONFIGS[selectedPreset]?.ffmpeg_preset) {
+                backendEffects.ffmpeg_preset = PRESET_CONFIGS[selectedPreset].ffmpeg_preset;
+            }
+
+            const effectsToSend = backendEffects;
 
             effectFormData.append("effects", JSON.stringify(effectsToSend));
             effectFormData.append("preview", "false");
@@ -376,21 +330,11 @@ export default function AudioToolsSection() {
     };
 
     const togglePlay = () => {
-        if (wavesurfer.current) {
-            wavesurfer.current.playPause();
-            // Resume context if suspended (browser autoplay policy)
-            if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
-                audioContextRef.current.resume();
-            }
-        }
+        if (wavesurfer.current) wavesurfer.current.playPause();
     };
 
     const toggleEffect = (key: keyof EffectState) => {
-        setEffects(prev => ({ ...prev, [key]: !(prev as any)[key] }));
-    };
-
-    const updateSlider = (key: keyof EffectState, value: number) => {
-        setEffects(prev => ({ ...prev, [key]: value }));
+        setEffects(prev => ({ ...prev, [key]: !prev[key] }));
     };
 
     const presets = [
@@ -467,55 +411,6 @@ export default function AudioToolsSection() {
                                 </div>
                             </div>
 
-                            {/* Real-time Adjustments */}
-                            <div className="mb-8">
-                                <h4 className="text-sm font-bold text-emerald-400 mb-3 flex items-center gap-2">
-                                    <Activity size={16} /> Real-Time Adjustments (Instant)
-                                </h4>
-                                <div className="grid md:grid-cols-2 gap-4 bg-slate-950/30 p-4 rounded-xl border border-slate-800/50">
-
-                                    {/* Volume Slider */}
-                                    <div>
-                                        <div className="flex items-center justify-between mb-2">
-                                            <label className="text-sm font-bold text-slate-300 flex items-center gap-2">
-                                                <Volume2 size={16} /> Volume Gain
-                                            </label>
-                                            <span className="text-xs font-mono text-rose-400">{effects.volume > 0 ? '+' : ''}{effects.volume} dB</span>
-                                        </div>
-                                        <input
-                                            type="range"
-                                            min="-10"
-                                            max="10"
-                                            step="1"
-                                            value={effects.volume}
-                                            onChange={(e) => {
-                                                updateSlider('volume', parseInt(e.target.value));
-                                                // Resume context on interaction
-                                                if (audioContextRef.current?.state === 'suspended') audioContextRef.current.resume();
-                                            }}
-                                            className="w-full accent-rose-500 h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer"
-                                        />
-                                    </div>
-
-                                    {/* Clarity Slider */}
-                                    <div>
-                                        <div className="flex items-center justify-between mb-2">
-                                            <label className="text-sm font-bold text-slate-300 flex items-center gap-2">
-                                                <Sliders size={16} /> Clarity / Crispness
-                                            </label>
-                                            <span className="text-xs font-mono text-violet-400">{effects.clarity}%</span>
-                                        </div>
-                                        <input
-                                            type="range"
-                                            min="0"
-                                            max="100"
-                                            value={effects.clarity}
-                                            onChange={(e) => updateSlider('clarity', parseInt(e.target.value))}
-                                            className="w-full accent-violet-500 h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer"
-                                        />
-                                    </div>
-                                </div>
-                            </div>
 
                             {/* Heavy Processing (Toggles) */}
                             <div className="mb-6">

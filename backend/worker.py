@@ -390,17 +390,51 @@ def run_audio_pipeline(input_path: str, output_path: str, effects: dict, progres
         if progress_callback: progress_callback('Applying Effects...', 75)
 
         filter_complex = []
+
+        # Volume boost (always applied — hardcoded +10dB from frontend)
         volume = int(effects.get("volume", 0))
         if volume != 0:
             filter_complex.append(f"volume={volume}dB")
 
+        # Noise reduction FFmpeg filter (from toggle)
         noise_reduction = float(effects.get("noise_reduction", 0))
         if noise_reduction > 0:
             nr_level = -50 + (noise_reduction / 100) * 30
             filter_complex.append(f"afftdn=nf={nr_level}")
 
-        if float(effects.get("hum_removal", 0)) > 0:
+        # Hum removal (50/60Hz harmonics)
+        hum_val = effects.get("hum_removal", 0)
+        if hum_val and float(hum_val) > 0:
             filter_complex.append("anequalizer=c0 f=50 w=100 g=-60 t=2|c0 f=100 w=100 g=-60 t=2|c0 f=150 w=100 g=-60 t=2")
+
+        # Clarity: dynamic compression to bring out detail
+        clarity = float(effects.get("clarity", 0))
+        if clarity > 0:
+            threshold = -30 + (clarity / 100) * 15  # -30dB to -15dB
+            filter_complex.append(f"acompressor=threshold={threshold}dB:ratio=3:attack=5:release=50:makeup=3dB")
+
+        # Enhance voice: presence boost in 2-5kHz range
+        if effects.get("enhance_voice", 0):
+            filter_complex.append("equalizer=f=3000:t=o:w=2000:g=4")
+
+        # Breath removal: bandpass to remove breath transients
+        if effects.get("breath_removal", 0):
+            filter_complex.append("highpass=f=120,lowpass=f=12000")
+
+        # Preset-specific FFmpeg filter chains
+        ffmpeg_preset = effects.get("ffmpeg_preset", "")
+        if ffmpeg_preset == "podcast":
+            # Podcast: voice clarity, gentle compression, high-pass to remove rumble
+            filter_complex.append("highpass=f=80,acompressor=threshold=-18dB:ratio=4:attack=5:release=100:makeup=4dB,equalizer=f=3000:t=o:w=1500:g=3")
+        elif ffmpeg_preset == "radio":
+            # Radio: telephone-style bandpass + compression
+            filter_complex.append("highpass=f=300,lowpass=f=3400,acompressor=threshold=-12dB:ratio=6:attack=2:release=50:makeup=6dB")
+        elif ffmpeg_preset == "cave":
+            # Cave: reverb simulation using layered echo
+            filter_complex.append("aecho=0.8:0.88:60:0.4,aecho=0.8:0.88:120:0.3")
+        elif ffmpeg_preset == "phone":
+            # Phone: narrow bandpass (300-3400Hz) like a telephone
+            filter_complex.append("highpass=f=300,lowpass=f=3400,volume=2dB")
 
         filter_str = ",".join(filter_complex) if filter_complex else "anull"
 
