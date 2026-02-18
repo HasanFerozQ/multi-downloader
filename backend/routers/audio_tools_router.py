@@ -82,6 +82,10 @@ async def process_audio(
         print(f"[DEBUG] /process-audio received effects: {effects_data}")
         is_preview = preview.lower() == "true"
         
+        # 0. Validate File Size (100MB Limit)
+        if file.size and file.size > 100 * 1024 * 1024:
+             raise HTTPException(status_code=400, detail="File too large. Maximum size is 100MB.")
+
         file_id = str(uuid.uuid4())
         input_filename = f"{file_id}_{file.filename}"
         input_path = UPLOAD_DIR / input_filename
@@ -144,7 +148,7 @@ async def preview_audio(
         duration_sec = await get_audio_duration(str(input_path))
         if duration_sec > 5.0:
             cmd = [FFMPEG_PATH, "-y", "-i", str(input_path), "-t", "5", "-c", "copy", trimmed_path]
-            await asyncio.to_thread(subprocess.run, cmd, check=True, capture_output=True)
+            await asyncio.to_thread(lambda: subprocess.run(cmd, check=True, capture_output=True))  # type: ignore
             cleanup_file(str(input_path))
             input_path = Path(trimmed_path)
 
@@ -227,8 +231,11 @@ async def download_result(task_id: str):
         output_path = result.result.get("path")
         if output_path and os.path.exists(output_path):
             return FileResponse(output_path, filename="processed_audio.mp3")
-            
-    raise HTTPException(status_code=404, detail="File not found or processing not complete.")
+    
+    if result.state == 'FAILURE':
+        raise HTTPException(status_code=500, detail=f"Processing failed: {str(result.result)}")
+
+    raise HTTPException(status_code=404, detail=f"File not found. Task state: {result.state}")
 
 @router.post("/extract-from-video")
 async def extract_from_video(file: UploadFile = File(...)):

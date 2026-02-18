@@ -1,5 +1,7 @@
-[00:00:02.865] Server  LOG     ✓ Ready in 2.2s
-[00:00:09.722] Server  LOG     ○ Compiling / ...
-[00:00:12.770] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-[00:00:13.570] Browser WARN    Image with src "/binance_qr.png" has "fill" but is missing "sizes" prop. Please add it to improve page performance. Read more: https://nextjs.org/docs/api-reference/next/image#sizes
-[00:00:57.331] Browser LOG     [DEBUG] Waveform loaded and ready
+[00:00:01.862] Server  LOG     ✓ Ready in 1350ms
+[00:00:10.304] Server  LOG     ○ Compiling / ...
+[00:00:12.410] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:00:13.184] Browser WARN    Image with src "/binance_qr.png" has "fill" but is missing "sizes" prop. Please add it to improve page performance. Read more: https://nextjs.org/docs/api-reference/next/image#sizes
+[00:01:04.872] Browser LOG     [DEBUG] Waveform ready — setting up Web Audio API graph
+[00:01:04.872] Browser LOG     [AudioTools] MediaElementSource created successfully
+[00:01:04.872] Browser LOG     [AudioTools] Audio graph connected — sliders are now live

@@ -439,7 +439,10 @@ def process_audio_task(self, input_path: str, output_path: str, effects: dict):
 
         run_audio_pipeline(input_path, output_path, effects, update_progress)
         
-        self.update_state(state='SUCCESS', meta={'status': 'Complete', 'progress': 100})
+        # Do NOT call self.update_state(state='SUCCESS') here.
+        # Celery automatically sets the task to SUCCESS and stores the return value
+        # as result.result. Manual update_state(SUCCESS) would overwrite the result
+        # with just the meta dict (no 'path' key), breaking the download endpoint.
         return {"status": "success", "path": output_path}
 
     except Exception as e:

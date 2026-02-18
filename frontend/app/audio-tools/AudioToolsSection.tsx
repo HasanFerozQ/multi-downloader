@@ -22,7 +22,7 @@ type EffectState = {
     clarity: number;          // 0-100%
 };
 
-const MAX_FILE_SIZE = 700 * 1024 * 1024; // 700MB
+const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
 
 export default function AudioToolsSection() {
     const [file, setFile] = useState<File | null>(null);
@@ -64,53 +64,9 @@ export default function AudioToolsSection() {
         clarity: 0,
     });
 
-    // --- Web Audio API Setup ---
-    useEffect(() => {
-        if (!extractedAudioUrl || !wavesurfer.current) return;
+    // Web Audio API setup is done inside the WaveSurfer 'ready' event (see below)
+    // to guarantee the media element exists before we try to connect the audio graph.
 
-        const mediaElement = wavesurfer.current.getMediaElement();
-        if (!mediaElement) return;
-
-        // Initialize Audio Context only once
-        if (!audioContextRef.current) {
-            const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-            audioContextRef.current = new AudioContextClass();
-        }
-
-        const ctx = audioContextRef.current;
-
-        // Create Nodes if they don't exist
-        if (!sourceNodeRef.current) {
-            try {
-                sourceNodeRef.current = ctx.createMediaElementSource(mediaElement);
-            } catch (e) {
-                // Node might already be connected if re-running
-                console.warn("MediaElementSource mostly already attached", e);
-            }
-        }
-
-        if (!gainNodeRef.current) gainNodeRef.current = ctx.createGain();
-        if (!compressorNodeRef.current) compressorNodeRef.current = ctx.createDynamicsCompressor();
-        if (!highpassNodeRef.current) {
-            highpassNodeRef.current = ctx.createBiquadFilter();
-            highpassNodeRef.current.type = "highpass";
-            highpassNodeRef.current.frequency.value = 0; // Start flat
-        }
-
-        // Connect Graph: Source -> Highpass -> Compressor -> Gain -> Destination
-        if (sourceNodeRef.current && highpassNodeRef.current && compressorNodeRef.current && gainNodeRef.current) {
-            sourceNodeRef.current.disconnect();
-            sourceNodeRef.current
-                .connect(highpassNodeRef.current)
-                .connect(compressorNodeRef.current)
-                .connect(gainNodeRef.current)
-                .connect(ctx.destination);
-        }
-
-        return () => {
-            // Cleanup on unmount/change? Usually contexts persist, but we can disconnect
-        };
-    }, [extractedAudioUrl]);
 
     // --- Real-time Effect Updates ---
 
@@ -198,7 +154,7 @@ export default function AudioToolsSection() {
             const selectedFile = acceptedFiles[0];
 
             if (selectedFile.size > MAX_FILE_SIZE) {
-                setError(`File size exceeds 700MB limit. Your file is ${(selectedFile.size / 1024 / 1024).toFixed(2)}MB`);
+                setError(`File size exceeds 100MB limit. Your file is ${(selectedFile.size / 1024 / 1024).toFixed(2)}MB`);
                 return;
             }
 
@@ -218,7 +174,12 @@ export default function AudioToolsSection() {
 
     useEffect(() => {
         if (extractedAudioUrl && waveformRef.current) {
+            // Tear down previous instance and audio graph
             if (wavesurfer.current) wavesurfer.current.destroy();
+            if (sourceNodeRef.current) {
+                sourceNodeRef.current.disconnect();
+                sourceNodeRef.current = null;
+            }
 
             wavesurfer.current = WaveSurfer.create({
                 container: waveformRef.current,
@@ -228,19 +189,68 @@ export default function AudioToolsSection() {
                 barWidth: 2,
                 barGap: 3,
                 height: 100,
-                // Important for Web Audio API:
+                // Required for Web Audio API integration:
                 backend: 'MediaElement',
             });
 
             wavesurfer.current.load(extractedAudioUrl);
 
             wavesurfer.current.on('ready', () => {
-                console.log('[DEBUG] Waveform loaded and ready');
+                console.log('[DEBUG] Waveform ready — setting up Web Audio API graph');
                 setUploadProgress(0);
+
+                // --- Web Audio API Graph Setup ---
+                // We MUST do this here (not in a separate useEffect) because
+                // getMediaElement() only returns a valid element after 'ready' fires.
+                const mediaElement = wavesurfer.current?.getMediaElement();
+                if (!mediaElement) {
+                    console.warn('[AudioTools] No media element after ready — skipping audio graph');
+                    return;
+                }
+
+                // Create AudioContext once
+                if (!audioContextRef.current) {
+                    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+                    audioContextRef.current = new AudioContextClass();
+                }
+                const ctx = audioContextRef.current;
+
+                // Create nodes (idempotent — reuse if already created)
+                if (!gainNodeRef.current) gainNodeRef.current = ctx.createGain();
+                if (!compressorNodeRef.current) compressorNodeRef.current = ctx.createDynamicsCompressor();
+                if (!highpassNodeRef.current) {
+                    highpassNodeRef.current = ctx.createBiquadFilter();
+                    highpassNodeRef.current.type = 'highpass';
+                    highpassNodeRef.current.frequency.value = 0;
+                }
+
+                // Create source node (must be fresh per media element)
+                try {
+                    sourceNodeRef.current = ctx.createMediaElementSource(mediaElement);
+                    console.log('[AudioTools] MediaElementSource created successfully');
+                } catch (e) {
+                    console.warn('[AudioTools] MediaElementSource already created:', e);
+                }
+
+                // Connect: Source -> Highpass -> Compressor -> Gain -> Output
+                if (sourceNodeRef.current && highpassNodeRef.current && compressorNodeRef.current && gainNodeRef.current) {
+                    sourceNodeRef.current
+                        .connect(highpassNodeRef.current)
+                        .connect(compressorNodeRef.current)
+                        .connect(gainNodeRef.current)
+                        .connect(ctx.destination);
+                    console.log('[AudioTools] Audio graph connected — sliders are now live');
+                }
             });
 
             wavesurfer.current.on('finish', () => setIsPlaying(false));
-            wavesurfer.current.on('play', () => setIsPlaying(true));
+            wavesurfer.current.on('play', () => {
+                setIsPlaying(true);
+                // Resume context on play (browser autoplay policy)
+                if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+                    audioContextRef.current.resume();
+                }
+            });
             wavesurfer.current.on('pause', () => setIsPlaying(false));
 
             return () => {
@@ -376,7 +386,7 @@ export default function AudioToolsSection() {
     };
 
     const toggleEffect = (key: keyof EffectState) => {
-        setEffects(prev => ({ ...prev, [key]: !prev[key as any] }));
+        setEffects(prev => ({ ...prev, [key]: !(prev as any)[key] }));
     };
 
     const updateSlider = (key: keyof EffectState, value: number) => {
@@ -415,7 +425,7 @@ export default function AudioToolsSection() {
                             <div className="text-center">
                                 <Upload size={48} className="text-slate-500 mx-auto mb-4" />
                                 <p className="text-slate-300 font-medium">Drag & drop files</p>
-                                <p className="text-slate-500 text-sm mt-2">Video/Audio (Max 700MB, 3 mins)</p>
+                                <p className="text-slate-500 text-sm mt-2">Video/Audio (Max 100MB, 3 mins)</p>
                             </div>
                         )}
                     </div>
@@ -478,7 +488,11 @@ export default function AudioToolsSection() {
                                             max="10"
                                             step="1"
                                             value={effects.volume}
-                                            onChange={(e) => updateSlider('volume', parseInt(e.target.value))}
+                                            onChange={(e) => {
+                                                updateSlider('volume', parseInt(e.target.value));
+                                                // Resume context on interaction
+                                                if (audioContextRef.current?.state === 'suspended') audioContextRef.current.resume();
+                                            }}
                                             className="w-full accent-rose-500 h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer"
                                         />
                                     </div>
@@ -641,8 +655,8 @@ function ToggleButton({ label, active, onClick }: { label: string, active: boole
         <button
             onClick={onClick}
             className={`flex items-center justify-between px-4 py-3 rounded-xl border transition-all ${active
-                    ? "bg-indigo-500/20 border-indigo-500 text-indigo-100"
-                    : "bg-slate-800/50 border-slate-700 text-slate-400 hover:border-slate-600 hover:bg-slate-800"
+                ? "bg-indigo-500/20 border-indigo-500 text-indigo-100"
+                : "bg-slate-800/50 border-slate-700 text-slate-400 hover:border-slate-600 hover:bg-slate-800"
                 }`}
         >
             <span className="text-sm font-medium">{label}</span>
