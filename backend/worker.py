@@ -117,22 +117,36 @@ def download_video_task(self, url: str, format_id: str, output_path: str):
         else:
             # Video download
             if format_id == "best":
-                format_spec = "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best"
+                # Auto-best: prefer mp4/avc1 for compatibility if sending to browser/mobile
+                format_spec = "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best"
+                cmd = [
+                    "yt-dlp", 
+                    "-f", format_spec, 
+                    "--merge-output-format", "mp4", 
+                    "--newline",
+                    "-o", output_path, # Force .mp4 filename for 'best' compatibility
+                    url
+                ]
             else:
-                format_spec = f"({format_id}[vcodec^=avc1]/bestvideo[vcodec^=avc1])+(bestaudio[ext=m4a]/bestaudio)/best"
-            
-            cmd = [
-                "yt-dlp", 
-                "-f", format_spec, 
-                "--merge-output-format", "mp4", 
-                "--newline",
-                "-o", output_path,
-                url
-            ]
+                # Specific format selected (e.g. 4K/2K which might be VP9)
+                # Trust the ID. Don't force avc1 or it will fail to download 4K (which is VP9 on YT)
+                format_spec = f"{format_id}+bestaudio[ext=m4a]/bestaudio/best"
+                
+                # Use standard template to allow MKV/WEBM if stream is VP9/AV1
+                # We strip the extension from output_path and let yt-dlp add the correct one
+                base_path = os.path.splitext(output_path)[0]
+                cmd = [
+                    "yt-dlp", 
+                    "-f", format_spec, 
+                    "--newline",
+                    "-o", f"{base_path}.%(ext)s", # Allow correct extension
+                    url
+                ]
             
             if ffmpeg_location:
                 cmd.insert(1, "--ffmpeg-location")
                 cmd.insert(2, ffmpeg_location)
+                # Only re-encode audio to AAC if valid, passing video through (even if VP9)
                 cmd.extend(["--postprocessor-args", "ffmpeg:-c:a aac -b:a 192k"])
         
         self.update_state(state='PROGRESS', meta={'progress': 5, 'status': 'Downloading'})

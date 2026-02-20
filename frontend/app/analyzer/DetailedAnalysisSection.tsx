@@ -1,4 +1,4 @@
-import { Zap, Search, Clock, Rocket, Settings, BarChart, Brain, MousePointer } from "lucide-react";
+import { Zap, Search, Clock, Rocket, Settings, BarChart, Brain, MousePointer, Lightbulb, Info } from "lucide-react";
 import { fmt, scoreColor } from "./utils";
 
 // Re-using the types from the main file would be ideal, but for now we define what we need or import if extracted
@@ -119,19 +119,27 @@ export default function DetailedAnalysisSection({ result }: { result: AnalysisRe
                             })}
                         </div>
 
-                        {/* Specific Alerts/Messages using clean styling */}
+                        {/* Insights & Tips — beautiful cards */}
                         {section.id === 'retention' && result.metrics.retention_risks?.length > 0 && (
-                            <div className="mx-6 mb-6 rounded-lg bg-rose-500/10 border border-rose-500/20 p-4">
+                            <div className="mx-6 mb-6 space-y-2">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <Lightbulb size={16} className="text-amber-400" />
+                                    <span className="text-xs font-bold uppercase tracking-wider text-amber-400">Insights & Tips</span>
+                                </div>
                                 {result.metrics.retention_risks.map((r: string, i: number) => (
-                                    <div key={i} className="flex items-center gap-2 text-rose-300 text-sm font-medium">
-                                        ⚠️ {r}
+                                    <div key={i} className="flex items-start gap-3 p-3.5 rounded-lg border-l-[3px] border-l-amber-400 bg-gradient-to-r from-amber-500/10 to-amber-600/5 border border-amber-500/30 transition-all hover:translate-x-1 duration-200">
+                                        <Lightbulb size={16} className="flex-shrink-0 mt-0.5 text-amber-400" />
+                                        <span className="text-sm font-medium leading-relaxed text-amber-200">{r}</span>
                                     </div>
                                 ))}
                             </div>
                         )}
                         {section.id === 'click_potential' && result.metrics.ctr_reason && (
-                            <div className="mx-6 mb-6 rounded-lg bg-indigo-500/10 border border-indigo-500/20 p-4 text-indigo-300 text-sm">
-                                💬 {result.metrics.ctr_reason}
+                            <div className="mx-6 mb-6">
+                                <div className="flex items-start gap-3 p-3.5 rounded-lg border-l-[3px] border-l-indigo-400 bg-gradient-to-r from-indigo-500/10 to-indigo-600/5 border border-indigo-500/30 transition-all hover:translate-x-1 duration-200">
+                                    <Info size={16} className="flex-shrink-0 mt-0.5 text-indigo-400" />
+                                    <span className="text-sm font-medium leading-relaxed text-indigo-200">CTR Assessment: {result.metrics.ctr_reason}</span>
+                                </div>
                             </div>
                         )}
                     </div>

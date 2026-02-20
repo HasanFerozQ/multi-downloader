@@ -112,13 +112,8 @@ def get_video_info(url: str) -> Dict[str, Any]:
     if cookie_path:
         ydl_opts['cookiefile'] = cookie_path
     
-    # YouTube: use web + android player client for broader compatibility
-    if "youtube.com" in url.lower() or "youtu.be" in url.lower():
-        ydl_opts['extractor_args'] = {
-            'youtube': {
-                'player_client': ['web', 'android'],
-            }
-        }
+    # YouTube: Use default client behavior (safest) 
+    # Removed manual player_client configuration as it was causing 'Video not available' errors
     
     if "tiktok.com" in url:
         ydl_opts['http_headers'] = {'Referer': 'https://www.tiktok.com/'}
@@ -148,7 +143,12 @@ def get_video_info(url: str) -> Dict[str, Any]:
             seen_heights = set()
             seen_combinations = set()
             
-            for f in info.get('formats', []):
+            # Check if ANY audio stream exists in the formats list
+            # If so, we can merge audio into video-only streams
+            all_formats = info.get('formats', [])
+            has_separate_audio = any(f.get('acodec', 'none') != 'none' for f in all_formats)
+            
+            for f in all_formats:
                 height = f.get('height')
                 vcodec = f.get('vcodec', 'none')
                 acodec = f.get('acodec', 'none')
@@ -185,12 +185,18 @@ def get_video_info(url: str) -> Dict[str, Any]:
                 
                 vbr = f.get('vbr')
                 
+                # If format has its own audio, great.
+                # If not, but we have separate audio available, we will merge it.
+                # So we report has_audio=True so frontend doesn't show "No Audio" badge.
+                stream_has_audio = acodec != "none"
+                effective_has_audio = stream_has_audio or has_separate_audio
+                
                 format_entry = {
                     "id": format_id,
                     "quality": quality_labels.get(height, f"{height}p"),
                     "height": height,
                     "ext": "mp4",
-                    "has_audio": acodec != "none",
+                    "has_audio": effective_has_audio,
                     "vcodec": vcodec,
                 }
                 
@@ -252,6 +258,18 @@ def get_video_info(url: str) -> Dict[str, Any]:
             if view_count is not None and like_count is not None and like_count > view_count:
                 logger.warning(f"Like count ({like_count}) exceeds view count ({view_count})")
             
+            # Detect platform from URL
+            platform = "YouTube"
+            url_lower = url.lower()
+            if "instagram.com" in url_lower:
+                platform = "Instagram"
+            elif "tiktok.com" in url_lower:
+                platform = "TikTok"
+            elif "x.com" in url_lower or "twitter.com" in url_lower:
+                platform = "X (Twitter)"
+            elif "facebook.com" in url_lower or "fb.watch" in url_lower:
+                platform = "Facebook"
+            
             result = {
                 "title": info.get('title') or "Untitled",
                 "thumbnail": thumbnail or "",
@@ -260,6 +278,7 @@ def get_video_info(url: str) -> Dict[str, Any]:
                 "original_url": url,
                 "uploader": uploader,
                 "tags": tags,
+                "platform": platform,
             }
             
             # Add numeric fields only if present

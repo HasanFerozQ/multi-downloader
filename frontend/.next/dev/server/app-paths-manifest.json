@@ -1,3 +1,4 @@
 {
+  "/downloader/page": "app/downloader/page.js",
   "/page": "app/page.js"
 }

@@ -135,21 +135,34 @@ async def get_actual_file(task_id: str, background_tasks: BackgroundTasks, title
     file_path_mp4 = f"temp_downloads/{task_id}.mp4"
     file_path_mp3 = f"temp_downloads/{task_id}.mp3"
     
-    # Use str() cast to satisfy strict linter for slice
     safe_title = str(re.sub(r'[\\/*?:"<>|]', "", title))[:50]  # type: ignore
     
-    if os.path.exists(file_path_mp4):
-        file_path = file_path_mp4
-        filename = f"{safe_title}.mp4"
-        media_type = 'video/mp4'
-    elif os.path.exists(file_path_mp3):
-        file_path = file_path_mp3
-        filename = f"{safe_title}.mp3"
-        media_type = 'audio/mpeg'
-    else:
+    # Check for various file extensions (prioritizing video then audio)
+    # We must support MKV/WEBM for 4K content that shouldn't be forced into MP4
+    possible_files = [
+        (f"temp_downloads/{task_id}.mp4", ".mp4", "video/mp4"),
+        (f"temp_downloads/{task_id}.mkv", ".mkv", "video/x-matroska"),
+        (f"temp_downloads/{task_id}.webm", ".webm", "video/webm"),
+        (f"temp_downloads/{task_id}.mp3", ".mp3", "audio/mpeg"),
+    ]
+    
+    file_path = None
+    filename = None
+    media_type = None
+    
+    for path, ext, mime in possible_files:
+        if os.path.exists(path):
+            file_path = path
+            filename = f"{safe_title}{ext}"
+            media_type = mime
+            break
+            
+    if not file_path:
         raise HTTPException(status_code=404, detail="File not found")
     
+    
     def remove_file():
+        if not file_path: return
         try: os.remove(file_path)
         except: pass
 
