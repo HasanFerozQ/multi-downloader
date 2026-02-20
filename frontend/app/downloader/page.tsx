@@ -32,10 +32,13 @@ export default function Home() {
 
       if (data.error) {
         setError(data.error);
+      } else if (!data.formats || data.formats.length === 0) {
+        setError("No downloadable formats found for this video. The platform may be unsupported or the video is restricted.");
       } else {
         setVideoData(data);
         // Auto-select best quality (usually last format before MP3)
-        const bestFormat = data.formats[data.formats.length - 2] || data.formats[0];
+        const formats = data.formats || [];
+        const bestFormat = formats.length >= 2 ? formats[formats.length - 2] : formats[0];
         setSelectedFormat(bestFormat?.id || "");
       }
     } catch (err) {
@@ -193,9 +196,14 @@ export default function Home() {
             <div className="flex flex-col md:flex-row gap-6 p-6">
               <div className="md:w-80 flex-shrink-0">
                 <img
-                  src={videoData.thumbnail}
+                  src={videoData.thumbnail || ''}
                   className="w-full rounded-xl shadow-lg border border-gray-600"
                   alt="Video Thumbnail"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                    target.parentElement!.insertAdjacentHTML('afterbegin', '<div class="w-full aspect-video rounded-xl bg-gray-700 flex items-center justify-center text-gray-500 text-4xl border border-gray-600">🎬</div>');
+                  }}
                 />
                 <div className="mt-4 space-y-2 text-sm text-gray-400">
                   <div className="flex justify-between">
@@ -234,16 +242,16 @@ export default function Home() {
                     📹 Select Quality:
                   </h3>
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                    {videoData.formats.map((f: any) => (
+                    {(videoData.formats || []).map((f: any) => (
                       <button
                         key={f.id}
                         onClick={() => setSelectedFormat(f.id)}
                         disabled={downloading}
                         className={`relative p-3 rounded-lg border-2 transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed ${selectedFormat === f.id
-                            ? f.id === "mp3"
-                              ? "bg-purple-600 border-purple-400 shadow-lg shadow-purple-500/50"
-                              : "bg-blue-600 border-blue-400 shadow-lg shadow-blue-500/50"
-                            : "bg-gray-700 border-gray-600 hover:bg-gray-600 hover:border-gray-500"
+                          ? f.id === "mp3"
+                            ? "bg-purple-600 border-purple-400 shadow-lg shadow-purple-500/50"
+                            : "bg-blue-600 border-blue-400 shadow-lg shadow-blue-500/50"
+                          : "bg-gray-700 border-gray-600 hover:bg-gray-600 hover:border-gray-500"
                           }`}
                       >
                         <div className="font-bold text-sm">

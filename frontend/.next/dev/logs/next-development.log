@@ -1,5 +1,4 @@
-[00:00:03.829] Server  LOG     ✓ Ready in 3s
-[00:00:09.677] Server  LOG     ○ Compiling / ...
-[00:00:16.442] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-[00:00:16.815] Browser WARN    Image with src "/binance_qr.png" has "fill" but is missing "sizes" prop. Please add it to improve page performance. Read more: https://nextjs.org/docs/api-reference/next/image#sizes
-[00:01:31.632] Browser LOG     WebSocket closed
+[00:00:03.179] Server  LOG     ✓ Ready in 2.4s
+[00:00:09.821] Server  LOG     ○ Compiling / ...
+[00:00:12.118] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:00:12.722] Browser WARN    Image with src "/binance_qr.png" has "fill" but is missing "sizes" prop. Please add it to improve page performance. Read more: https://nextjs.org/docs/api-reference/next/image#sizes

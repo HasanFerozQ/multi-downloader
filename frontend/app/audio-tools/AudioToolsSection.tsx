@@ -53,6 +53,7 @@ export default function AudioToolsSection() {
     const [file, setFile] = useState<File | null>(null);
     const [processing, setProcessing] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
+    const [processProgress, setProcessProgress] = useState(0);
     const [extractedAudioUrl, setExtractedAudioUrl] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
@@ -88,16 +89,26 @@ export default function AudioToolsSection() {
 
                     const data = await res.json();
 
+                    // Update progress bar
+                    if (data.progress !== undefined) {
+                        setProcessProgress(data.progress);
+                    }
+
                     if (data.status === 'SUCCESS') {
                         clearInterval(interval);
+                        setProcessProgress(100);
                         setProcessing(false);
                         setTaskId(null);
+
+                        // Build filename from original: name_Processed.mp3
+                        const baseName = file?.name?.replace(/\.[^/.]+$/, '') || 'audio';
+                        const downloadName = `${baseName}_Processed.mp3`;
 
                         // Download
                         const downloadUrl = `${API_URL}/audio-tools/download/${data.task_id}`;
                         const a = document.createElement('a');
                         a.href = downloadUrl;
-                        a.download = "processed_audio.mp3";
+                        a.download = downloadName;
                         document.body.appendChild(a);
                         a.click();
                         document.body.removeChild(a);
@@ -272,6 +283,7 @@ export default function AudioToolsSection() {
     const handleDownload = async () => {
         if (!extractedAudioUrl) return;
         setProcessing(true);
+        setProcessProgress(0);
         setError(null);
         setStatusMessage("Uploading configuration...");
 
@@ -313,7 +325,17 @@ export default function AudioToolsSection() {
                 body: effectFormData
             });
 
-            if (!res.ok) throw new Error(await res.text());
+            if (!res.ok) {
+                const errorText = await res.text();
+                let errorMessage = "Processing failed";
+                try {
+                    const errorJson = JSON.parse(errorText);
+                    errorMessage = errorJson.detail || errorJson.message || errorMessage;
+                } catch {
+                    errorMessage = errorText || errorMessage;
+                }
+                throw new Error(errorMessage);
+            }
 
             const data = await res.json();
 
@@ -412,6 +434,13 @@ export default function AudioToolsSection() {
                             </div>
 
 
+                            {/* Noise Removal Tip */}
+                            <div className="mb-4 bg-blue-500/10 border border-blue-500/20 rounded-xl p-3">
+                                <p className="text-xs text-blue-300">
+                                    💡 <strong>Tip:</strong> Spectral Denoise, DeNoise Ultra, and Noise Removal are usually enough to completely remove background noise.
+                                </p>
+                            </div>
+
                             {/* Heavy Processing (Toggles) */}
                             <div className="mb-6">
                                 <h4 className="text-sm font-bold text-slate-300 mb-3 flex items-center gap-2">
@@ -500,6 +529,25 @@ export default function AudioToolsSection() {
                                     })}
                                 </div>
                             </div>
+
+                            {/* Processing Progress Bar */}
+                            {processing && processProgress > 0 && (
+                                <div className="mb-4">
+                                    <div className="flex justify-between text-xs text-slate-400 mb-1.5">
+                                        <span>{statusMessage}</span>
+                                        <span className="font-bold text-emerald-400">{processProgress}%</span>
+                                    </div>
+                                    <div className="w-full bg-slate-800 rounded-full h-2.5 overflow-hidden">
+                                        <div
+                                            className={`h-full rounded-full transition-all duration-500 ${processProgress === 100
+                                                    ? 'bg-emerald-500'
+                                                    : 'bg-gradient-to-r from-rose-500 via-pink-500 to-purple-500'
+                                                }`}
+                                            style={{ width: `${processProgress}%` }}
+                                        />
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Download Button */}
                             <button

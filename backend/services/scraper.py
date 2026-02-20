@@ -1,7 +1,9 @@
 import yt_dlp  # type: ignore
 import os
 import logging
+import subprocess
 from typing import Dict, Any, Optional
+from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 import random
 
 logger = logging.getLogger(__name__)
@@ -22,6 +24,10 @@ def get_platform_cookies(url: str) -> Optional[str]:
         "fb.com": "cookies_facebook.txt",
         "instagram.com": "cookies_instagram.txt",
         "tiktok.com": "cookies_tiktok.txt",
+        "x.com": "cookies_x.txt",
+        "twitter.com": "cookies_x.txt",
+        "youtube.com": "cookies_youtube.txt",
+        "youtu.be": "cookies_youtube.txt",
     }
     
     for platform, cookie_file in cookie_mapping.items():
@@ -40,8 +46,53 @@ def get_platform_cookies(url: str) -> Optional[str]:
     return None
 
 
+def _update_ytdlp() -> None:
+    """Keep yt-dlp updated to avoid 'video not available' errors."""
+    try:
+        subprocess.run(
+            ["pip", "install", "-U", "yt-dlp"],
+            capture_output=True,
+            timeout=30,
+            check=False,
+        )
+        logger.info("yt-dlp update check complete.")
+    except Exception:
+        logger.warning("Failed to update yt-dlp, continuing with current version.")
+
+
+def _clean_youtube_url(url: str) -> str:
+    """Strip playlist/radio parameters from YouTube URLs to avoid processing entire playlists."""
+    if 'youtube.com' not in url.lower() and 'youtu.be' not in url.lower():
+        return url
+    
+    parsed = urlparse(url)
+    params = parse_qs(parsed.query)
+    
+    # Keep only the video ID parameter, drop list/index/start_radio etc.
+    clean_params = {}
+    if 'v' in params:
+        clean_params['v'] = params['v'][0]
+    if 't' in params:  # keep timestamp if present
+        clean_params['t'] = params['t'][0]
+    
+    if clean_params:
+        clean_url = urlunparse((
+            parsed.scheme, parsed.netloc, parsed.path,
+            '', urlencode(clean_params), ''
+        ))
+        if clean_url != url:
+            logger.info(f"Cleaned YouTube URL: {url} -> {clean_url}")
+        return clean_url
+    
+    return url
+
+
 def get_video_info(url: str) -> Dict[str, Any]:
     """Extract video information and available formats"""
+    _update_ytdlp()
+    
+    # Clean playlist/radio params from YouTube URLs
+    url = _clean_youtube_url(url)
     
     cookie_path = get_platform_cookies(url)
     
@@ -51,12 +102,23 @@ def get_video_info(url: str) -> Dict[str, Any]:
         'user_agent': random.choice(USER_AGENTS),
         'extract_flat': False,
         'no_color': True,
+        'noplaylist': True,
         'retries': 3,
         'fragment_retries': 3,
+        'socket_timeout': 30,
+        'nocheckcertificate': True,
     }
     
     if cookie_path:
         ydl_opts['cookiefile'] = cookie_path
+    
+    # YouTube: use web + android player client for broader compatibility
+    if "youtube.com" in url.lower() or "youtu.be" in url.lower():
+        ydl_opts['extractor_args'] = {
+            'youtube': {
+                'player_client': ['web', 'android'],
+            }
+        }
     
     if "tiktok.com" in url:
         ydl_opts['http_headers'] = {'Referer': 'https://www.tiktok.com/'}
@@ -241,10 +303,10 @@ def get_video_info(url: str) -> Dict[str, Any]:
         
         if "Private video" in error_msg:
             return {"error": "This video is private"}
-        elif "Video unavailable" in error_msg:
-            return {"error": "Video is unavailable or has been deleted"}
+        elif "not available" in error_msg.lower() or "Video unavailable" in error_msg:
+            return {"error": "This video is not available. Possible reasons: it may be age-restricted (requires YouTube cookies), deleted, private, or region-locked. Try adding a cookies_youtube.txt file."}
         elif "Sign in to confirm" in error_msg or "age" in error_msg.lower():
-            return {"error": "Video is age-restricted. Cookie authentication required."}
+            return {"error": "Video is age-restricted. Cookie authentication required. Add a cookies_youtube.txt file to enable access."}
         elif "country" in error_msg.lower() or "region" in error_msg.lower():
             return {"error": "Video is not available in your region"}
         elif "HTTP Error 404" in error_msg:

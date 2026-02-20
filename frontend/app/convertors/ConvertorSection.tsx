@@ -131,20 +131,37 @@ function ConvertorInterface({ type }: ConvertorProps) {
                 throw new Error(errData.detail || "Conversion failed");
             }
 
-            // Get filename from header if possible, or fallback
+            // Get filename from Content-Disposition header
             const disposition = res.headers.get('content-disposition');
-            let filename = `converted_files.zip`;
-            if (disposition && disposition.indexOf('filename=') !== -1) {
-                const matches = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(disposition);
-                if (matches != null && matches[1]) {
-                    filename = matches[1].replace(/['"]/g, '');
+            const contentType = res.headers.get('content-type') || '';
+            const isZip = contentType.includes('application/zip');
+
+            let filename = isZip ? `converted_files.zip` : `converted.${targetFormat.toLowerCase()}`;
+            if (disposition) {
+                // Handle both filename="..." and filename*=UTF-8''...
+                const utf8Match = /filename\*=UTF-8''(.+)/i.exec(disposition);
+                const standardMatch = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/i.exec(disposition);
+                if (utf8Match) {
+                    filename = decodeURIComponent(utf8Match[1]);
+                } else if (standardMatch && standardMatch[1]) {
+                    filename = standardMatch[1].replace(/['"]/g, '');
                 }
             }
-            setDownloadName(filename);
 
-            // Create blob URL for download
+            // Create blob URL and auto-trigger download
             const blob = await res.blob();
             const url = window.URL.createObjectURL(blob);
+
+            // Auto-download immediately
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+
+            // Also show manual download link as fallback
+            setDownloadName(filename);
             setDownloadUrl(url);
 
         } catch (err: any) {

@@ -70,10 +70,28 @@ export default function Footer() {
                 5-in-1 Downloader
               </Link>
               <Link 
-                href="/transcriber" 
+                href="/audio-tools" 
                 className="block text-sm text-slate-400 hover:text-blue-500 transition-colors"
               >
-                Transcriber
+                Audio Tools
+              </Link>
+              <Link 
+                href="/compressor" 
+                className="block text-sm text-slate-400 hover:text-blue-500 transition-colors"
+              >
+                Compressor
+              </Link>
+              <Link 
+                href="/convertors" 
+                className="block text-sm text-slate-400 hover:text-blue-500 transition-colors"
+              >
+                Convertors
+              </Link>
+              <Link 
+                href="/blog" 
+                className="block text-sm text-slate-400 hover:text-blue-500 transition-colors"
+              >
+                Blog
               </Link>
             </nav>
           </div>

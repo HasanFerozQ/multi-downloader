@@ -98,6 +98,33 @@ class DocumentConverter(BaseConverter):
     # For LibreOffice conversions (doc, docx, ppt, pptx, xls, xlsx -> pdf)
     OFFICE_FORMATS = {'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx', 'odt', 'ods', 'odp'}
     
+    @staticmethod
+    def _find_libreoffice() -> str:
+        """Find the LibreOffice executable. Returns the path or raises an error."""
+        import shutil
+        
+        # Check common command names in PATH
+        for cmd in ['libreoffice', 'soffice']:
+            found = shutil.which(cmd)
+            if found:
+                return found
+        
+        # Windows: check common install paths
+        if os.name == 'nt':
+            windows_paths = [
+                r"C:\Program Files\LibreOffice\program\soffice.exe",
+                r"C:\Program Files (x86)\LibreOffice\program\soffice.exe",
+            ]
+            for path in windows_paths:
+                if os.path.exists(path):
+                    return path
+        
+        raise RuntimeError(
+            "LibreOffice is not installed or not found in PATH. "
+            "Please install LibreOffice from https://www.libreoffice.org/download/ "
+            "to enable document conversions (DOC, DOCX, PPT, XLS → PDF)."
+        )
+    
     def convert(self, file_path: Path, target_format: str) -> Path:
         target_format = target_format.lower()
         input_ext = file_path.suffix.lower().lstrip('.')
@@ -113,8 +140,6 @@ class DocumentConverter(BaseConverter):
             elif input_ext == 'pdf' and target_format == 'docx':
                 return self._pdf_to_docx(file_path, output_path)
             
-            # 3. PDF to Images? (Could be added to ImageConverter but document context fits here too)
-            
             else:
                 raise ValueError(f"Conversion from {input_ext} to {target_format} is not supported directly.")
                 
@@ -122,36 +147,54 @@ class DocumentConverter(BaseConverter):
              raise RuntimeError(f"Document conversion failed: {str(e)}")
 
     def _convert_to_pdf_libreoffice(self, file_path: Path) -> Path:
-        """Uses LibreOffice headless to convert to PDF."""
-        # Output dir for libreoffice must be a directory
-        # The file will be named same as input but .pdf
+        """Uses LibreOffice headless to convert to PDF, with docx2pdf fallback on Windows."""
+        try:
+            lo_cmd = self._find_libreoffice()
+        except RuntimeError:
+            lo_cmd = None
         
-        # Command: libreoffice --headless --convert-to pdf --outdir <dir> <file>
-        cmd = [
-            "libreoffice", "--headless",
-            "--convert-to", "pdf",
-            "--outdir", str(OUTPUT_DIR),
-            str(file_path)
-        ]
-        
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        if result.returncode != 0:
-            raise RuntimeError(f"LibreOffice failed: {result.stderr}")
+        if lo_cmd:
+            cmd = [
+                lo_cmd, "--headless",
+                "--convert-to", "pdf",
+                "--outdir", str(OUTPUT_DIR),
+                str(file_path)
+            ]
             
-        # Predict output filename: name.pdf
-        expected_output = OUTPUT_DIR / f"{file_path.stem}.pdf"
-        
-        if not expected_output.exists():
-            raise RuntimeError("LibreOffice finished but output file not found.")
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+            if result.returncode != 0:
+                raise RuntimeError(f"LibreOffice conversion failed: {result.stderr}")
+                
+            expected_output = OUTPUT_DIR / f"{file_path.stem}.pdf"
             
-        # check if we need to rename to use our unique naming convention? 
-        # BaseConverter._get_unique_filename logic handles uniqueness, but here LO dictates name.
-        # We can rename it to ensure uniqueness if multiple same-name files exist?
-        # For now, simplistic approach.
-        return expected_output
+            if not expected_output.exists():
+                raise RuntimeError("LibreOffice finished but output file not found.")
+                
+            return expected_output
+        
+        # Fallback: try docx2pdf (requires Microsoft Word on Windows)
+        input_ext = file_path.suffix.lower().lstrip('.')
+        if input_ext in ('doc', 'docx') and os.name == 'nt':
+            try:
+                import docx2pdf  # type: ignore
+                output_path = OUTPUT_DIR / f"{file_path.stem}.pdf"
+                docx2pdf.convert(str(file_path), str(output_path))
+                if output_path.exists():
+                    return output_path
+            except ImportError:
+                pass
+            except Exception as e:
+                raise RuntimeError(f"docx2pdf conversion failed: {str(e)}")
+        
+        raise RuntimeError(
+            "Neither LibreOffice nor Microsoft Word found. "
+            "Install LibreOffice from https://www.libreoffice.org/download/ "
+            "or Microsoft Word to enable document conversions."
+        )
 
     def _pdf_to_docx(self, input_path: Path, output_path: Path) -> Path:
         cv = PdfConverter(str(input_path))
         cv.convert(str(output_path), start=0, end=None)
         cv.close()
         return output_path
+

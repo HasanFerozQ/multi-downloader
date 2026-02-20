@@ -19,11 +19,12 @@ load_dotenv()
 
 app = FastAPI(title="Pro StreamDown API")
 
-from backend.routers import convert_router, feedback_router, gif_router, audio_tools_router # type: ignore
+from backend.routers import convert_router, feedback_router, gif_router, audio_tools_router, compress_router # type: ignore
 app.include_router(convert_router)
 app.include_router(feedback_router)
 app.include_router(gif_router)
 app.include_router(audio_tools_router)
+app.include_router(compress_router)
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):

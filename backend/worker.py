@@ -1,17 +1,17 @@
-import os, subprocess, time, shutil
+import os, subprocess, time, shutil, sys
 
 # Python 3.13 compatibility fix - MUST be imported before Celery
 try:
-    import backend.billiard_fix
+    import backend.billiard_fix # type: ignore
 except ImportError:
     try:
-        import billiard_fix
+        import billiard_fix # type: ignore
     except ImportError:
         pass  # Skip if not using Python 3.13
 
-from celery import Celery
+from celery import Celery # type: ignore
 
-from dotenv import load_dotenv
+from dotenv import load_dotenv # type: ignore
 load_dotenv()
 
 # rnnoise-python is not on PyPI — we use FFmpeg's built-in arnndn filter instead
@@ -148,8 +148,10 @@ def download_video_task(self, url: str, format_id: str, output_path: str):
         
         last_progress: float = 0.0
         
-        if process.stdout:
-            for line in process.stdout:
+        # Explicitly check and use stdout
+        stdout = process.stdout
+        if stdout:
+            for line in stdout:
                 if "[download]" in line and "%" in line:
                     try:
                         parts = line.split()
@@ -158,8 +160,8 @@ def download_video_task(self, url: str, format_id: str, output_path: str):
                                 p_str = ''.join(c for c in part if c.isdigit() or c == '.')
                                 if p_str:
                                     progress = float(p_str)
-                                    if progress - last_progress >= 1.0 or progress == 100.0:
-                                        last_progress = progress
+                                    if progress - float(last_progress) >= 1.0 or progress == 100.0:
+                                        last_progress = float(progress)
                                         self.update_state(
                                             state='PROGRESS', 
                                             meta={'progress': min(progress, 99.0), 'status': 'Downloading'}
@@ -186,9 +188,9 @@ def download_video_task(self, url: str, format_id: str, output_path: str):
         
         # FIXED: Handle extension changes
         if not os.path.exists(output_path):
-            base_path = os.path.splitext(output_path)[0]
+            base_path = str(os.path.splitext(output_path)[0])
             for ext in ['.mp4', '.webm', '.mkv', '.mp3', '.m4a']:
-                alt_path = base_path + ext
+                alt_path = f"{base_path}{ext}"
                 if os.path.exists(alt_path):
                     try:
                         os.rename(alt_path, output_path)
@@ -234,7 +236,7 @@ def scheduled_cleanup():
             if now - float(os.stat(f_path).st_mtime) > 1800:  # 30 minutes
                 try:
                     os.remove(f_path)
-                    cleaned += 1
+                    cleaned += 1  # type: ignore
                 except:
                     pass
     
@@ -351,7 +353,7 @@ def run_audio_pipeline(input_path: str, output_path: str, effects: dict, progres
     Core audio processing logic.
     progress_callback(status_str, progress_int)
     """
-    intermediate_files = []
+    intermediate_files: list[str] = []
     try:
         if progress_callback: progress_callback('Initializing...', 0)
 
@@ -402,10 +404,12 @@ def run_audio_pipeline(input_path: str, output_path: str, effects: dict, progres
             nr_level = -50 + (noise_reduction / 100) * 30
             filter_complex.append(f"afftdn=nf={nr_level}")
 
-        # Hum removal (50/60Hz harmonics)
+        # Hum removal (50/60Hz harmonics) - use standard equalizer filters
         hum_val = effects.get("hum_removal", 0)
         if hum_val and float(hum_val) > 0:
-            filter_complex.append("anequalizer=c0 f=50 w=100 g=-60 t=2|c0 f=100 w=100 g=-60 t=2|c0 f=150 w=100 g=-60 t=2")
+            filter_complex.append("equalizer=f=50:t=q:w=5:g=-30")
+            filter_complex.append("equalizer=f=100:t=q:w=5:g=-30")
+            filter_complex.append("equalizer=f=150:t=q:w=5:g=-30")
 
         # Clarity: dynamic compression to bring out detail
         clarity = float(effects.get("clarity", 0))
@@ -415,7 +419,7 @@ def run_audio_pipeline(input_path: str, output_path: str, effects: dict, progres
 
         # Enhance voice: presence boost in 2-5kHz range
         if effects.get("enhance_voice", 0):
-            filter_complex.append("equalizer=f=3000:t=o:w=2000:g=4")
+            filter_complex.append("equalizer=f=3000:t=h:w=2000:g=4")
 
         # Breath removal: bandpass to remove breath transients
         if effects.get("breath_removal", 0):
@@ -425,7 +429,7 @@ def run_audio_pipeline(input_path: str, output_path: str, effects: dict, progres
         ffmpeg_preset = effects.get("ffmpeg_preset", "")
         if ffmpeg_preset == "podcast":
             # Podcast: voice clarity, gentle compression, high-pass to remove rumble
-            filter_complex.append("highpass=f=80,acompressor=threshold=-18dB:ratio=4:attack=5:release=100:makeup=4dB,equalizer=f=3000:t=o:w=1500:g=3")
+            filter_complex.append("highpass=f=80,acompressor=threshold=-18dB:ratio=4:attack=5:release=100:makeup=4dB,equalizer=f=3000:t=h:w=1500:g=3")
         elif ffmpeg_preset == "radio":
             # Radio: telephone-style bandpass + compression
             filter_complex.append("highpass=f=300,lowpass=f=3400,acompressor=threshold=-12dB:ratio=6:attack=2:release=50:makeup=6dB")
@@ -456,7 +460,7 @@ def run_audio_pipeline(input_path: str, output_path: str, effects: dict, progres
         for f in intermediate_files:
             try:
                 if os.path.exists(f): 
-                    os.remove(f)
+                    os.remove(str(f))
             except: pass
 
 
