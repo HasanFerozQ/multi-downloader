@@ -15,6 +15,12 @@ router = APIRouter(prefix="/compress", tags=["Compression"])
 UPLOAD_DIR = Path("temp_uploads")
 UPLOAD_DIR.mkdir(exist_ok=True)
 
+# Size limits
+IMAGE_MAX_PER_FILE = 100 * 1024 * 1024   # 100 MB per image
+IMAGE_MAX_COMBINED = 100 * 1024 * 1024    # 100 MB combined
+VIDEO_MAX_PER_FILE = 500 * 1024 * 1024    # 500 MB per video
+VIDEO_MAX_COMBINED = 500 * 1024 * 1024    # 500 MB combined
+
 
 def cleanup_files(files: list):
     for f in files:
@@ -39,15 +45,28 @@ async def compress_images(
     compressed_files: list[Path] = []
 
     try:
+        # Read all files and validate sizes
+        file_contents: list[tuple[UploadFile, bytes]] = []
+        combined_size = 0
         for file in files:
+            content = await file.read()
+            file_size = len(content)
+            if file_size > IMAGE_MAX_PER_FILE:
+                raise HTTPException(400, f'"{file.filename}" is too large ({file_size // (1024*1024)}MB). Maximum is 100MB per image.')
+            combined_size += file_size
+            if combined_size > IMAGE_MAX_COMBINED:
+                raise HTTPException(400, f"Combined file size exceeds 100MB limit.")
+            file_contents.append((file, content))
+
+        for file, content in file_contents:
             ext = Path(file.filename or "image.jpg").suffix.lower().lstrip('.')
             if ext not in ImageCompressor.SUPPORTED:
                 raise HTTPException(400, f"Unsupported format: {ext}")
 
-            uid = uuid.uuid4().hex[:8]
+            raw_uuid = str(uuid.uuid4().hex)
+            uid = raw_uuid[0:8] # type: ignore
             input_path = UPLOAD_DIR / f"{uid}_{file.filename}"
-            content = await file.read()
-            input_path.write_bytes(content)
+            input_path.write_bytes(content if isinstance(content, bytes) else bytes(content)) # type: ignore
             temp_inputs.append(input_path)
 
             compressed = compressor.compress(input_path)
@@ -81,36 +100,54 @@ async def compress_video(
     background_tasks: BackgroundTasks,
     files: List[UploadFile] = File(...)
 ):
-    if len(files) > 1:
-        raise HTTPException(400, "Only 1 video at a time")
+    if len(files) > 5:
+        raise HTTPException(400, "Maximum 5 videos allowed at a time")
 
-    file = files[0]
-    file_size = 0
-    
-    uid = uuid.uuid4().hex[:8]
-    input_path = UPLOAD_DIR / f"{uid}_{file.filename}"
-    
+    compressor = VideoCompressor()
+    temp_inputs: list[Path] = []
+    compressed_files: list[Path] = []
+
     try:
-        content = await file.read()
-        file_size = len(content)
-        
-        if file_size > VideoCompressor.MAX_SIZE_MB * 1024 * 1024:
-            raise HTTPException(400, f"File too large. Maximum is {VideoCompressor.MAX_SIZE_MB}MB.")
+        # Read all files and validate sizes
+        file_contents: list[tuple[UploadFile, bytes]] = []
+        combined_size = 0
+        for file in files:
+            content = await file.read()
+            file_size = len(content)
+            if file_size > VIDEO_MAX_PER_FILE:
+                raise HTTPException(400, f'"{file.filename}" is too large ({file_size // (1024*1024)}MB). Maximum is 500MB per video.')
+            combined_size += file_size
+            if combined_size > VIDEO_MAX_COMBINED:
+                raise HTTPException(400, f"Combined file size exceeds 500MB limit.")
+            file_contents.append((file, content))
 
-        input_path.write_bytes(content)
+        for file, content in file_contents:
+            raw_uuid = str(uuid.uuid4().hex)
+            uid = raw_uuid[0:8] # type: ignore
+            input_path = UPLOAD_DIR / f"{uid}_{file.filename}"
+            input_path.write_bytes(content if isinstance(content, bytes) else bytes(content)) # type: ignore
+            temp_inputs.append(input_path)
 
-        compressor = VideoCompressor()
-        compressed = compressor.compress(input_path)
+            compressed = compressor.compress(input_path)
+            compressed_files.append(compressed)
 
-        background_tasks.add_task(cleanup_files, [input_path, compressed])
-        
-        ext = compressed.suffix.lstrip('.')
-        return FileResponse(
-            str(compressed), media_type=f"video/{ext}", filename=compressed.name
-        )
+        if len(compressed_files) == 1:
+            final = compressed_files[0]
+            ext = final.suffix.lstrip('.')
+            background_tasks.add_task(cleanup_files, temp_inputs + compressed_files)
+            return FileResponse(
+                str(final), media_type=f"video/{ext}", filename=final.name
+            )
+        else:
+            from backend.services.converter import BaseConverter
+            zip_path = BaseConverter.create_zip(compressed_files, "compressed_videos")
+            background_tasks.add_task(cleanup_files, temp_inputs + compressed_files + [zip_path])
+            return FileResponse(
+                str(zip_path), media_type="application/zip", filename="compressed_videos.zip"
+            )
 
     except HTTPException:
         raise
     except Exception as e:
-        cleanup_files([input_path])
+        cleanup_files(temp_inputs + compressed_files)
         raise HTTPException(500, f"Video compression failed: {str(e)}")

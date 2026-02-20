@@ -78,7 +78,7 @@ class VideoCompressor:
 
     MAX_SIZE_MB = 500
 
-    def compress(self, file_path: Path, crf: int = 28, preset: str = "veryfast") -> Path:
+    def compress(self, file_path: Path, crf: int = 32, preset: str = "medium") -> Path:
         ext = file_path.suffix.lower()
         output_path = OUTPUT_DIR / f"{file_path.stem}_Compressed{ext}"
 
@@ -90,15 +90,17 @@ class VideoCompressor:
             "-c:v", "libx264",
             "-crf", str(crf),
             "-preset", preset,
+            "-tune", "film",
             "-c:a", "aac",
-            "-b:a", "128k",
+            "-b:a", "96k",
             "-movflags", "+faststart",
             str(output_path)
         ]
 
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
         if result.returncode != 0:
-            raise RuntimeError(f"Video compression failed: {result.stderr[-500:]}")
+            error_msg = str(result.stderr)
+            raise RuntimeError(f"Video compression failed: {error_msg[0:]}")  # type: ignore
 
         if not output_path.exists() or output_path.stat().st_size < 1024:
             raise RuntimeError("Video compression produced no valid output file.")

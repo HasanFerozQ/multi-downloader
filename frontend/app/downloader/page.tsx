@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import DoNotRefresh from "../components/DoNotRefresh";
 
 export default function DownloaderPage() {
   const [url, setUrl] = useState("");
@@ -164,8 +165,6 @@ export default function DownloaderPage() {
   };
 
   const getQualityColor = (quality: string, isSelected: boolean) => {
-    if (quality.includes("4K") || quality.includes("2160")) return isSelected ? "border-amber-400 bg-amber-500/20 shadow-amber-500/30" : "border-amber-500/30 hover:border-amber-400/60";
-    if (quality.includes("1440") || quality.includes("2K")) return isSelected ? "border-purple-400 bg-purple-500/20 shadow-purple-500/30" : "border-purple-500/30 hover:border-purple-400/60";
     if (quality.includes("1080")) return isSelected ? "border-emerald-400 bg-emerald-500/20 shadow-emerald-500/30" : "border-emerald-500/30 hover:border-emerald-400/60";
     if (quality.includes("720")) return isSelected ? "border-blue-400 bg-blue-500/20 shadow-blue-500/30" : "border-blue-500/30 hover:border-blue-400/60";
     if (quality.includes("Audio") || quality.includes("MP3")) return isSelected ? "border-pink-400 bg-pink-500/20 shadow-pink-500/30" : "border-pink-500/30 hover:border-pink-400/60";
@@ -173,8 +172,6 @@ export default function DownloaderPage() {
   };
 
   const getQualityBadge = (quality: string) => {
-    if (quality.includes("4K") || quality.includes("2160")) return { label: "4K", color: "bg-amber-500" };
-    if (quality.includes("1440") || quality.includes("2K")) return { label: "2K", color: "bg-purple-500" };
     if (quality.includes("1080")) return { label: "FHD", color: "bg-emerald-500" };
     if (quality.includes("720")) return { label: "HD", color: "bg-blue-500" };
     if (quality.includes("Audio") || quality.includes("MP3")) return { label: "MP3", color: "bg-pink-500" };
@@ -184,6 +181,7 @@ export default function DownloaderPage() {
 
   return (
     <div className="min-h-screen text-white">
+      <DoNotRefresh visible={downloading || loading} />
       <div className="max-w-5xl mx-auto pt-8 px-4 pb-12">
 
         {/* Header */}
@@ -192,7 +190,7 @@ export default function DownloaderPage() {
             5-in-1 Video Downloader
           </h1>
           <p className="text-slate-400 text-lg max-w-2xl mx-auto">
-            Download videos from <strong className="text-blue-400">YouTube</strong>, <strong className="text-pink-400">Instagram</strong>, <strong className="text-cyan-400">TikTok</strong>, <strong className="text-blue-300">Facebook</strong>, and <strong className="text-slate-300">X (Twitter)</strong> — in any quality up to 4K
+            Download videos from <strong className="text-blue-400">YouTube</strong>, <strong className="text-pink-400">Instagram</strong>, <strong className="text-cyan-400">TikTok</strong>, <strong className="text-blue-300">Facebook</strong>, and <strong className="text-slate-300">X (Twitter)</strong> — in any quality up to Full HD (1080p)
           </p>
         </div>
 
@@ -211,8 +209,8 @@ export default function DownloaderPage() {
               onClick={handleFetch}
               disabled={loading}
               className={`px-8 py-4 rounded-xl font-bold text-lg transition-all shadow-lg ${loading
-                  ? "bg-slate-700 cursor-not-allowed opacity-60"
-                  : "bg-gradient-to-r from-indigo-500 to-purple-600 hover:opacity-90 active:scale-95 hover:shadow-indigo-500/40"
+                ? "bg-slate-700 cursor-not-allowed opacity-60"
+                : "bg-gradient-to-r from-indigo-500 to-purple-600 hover:opacity-90 active:scale-95 hover:shadow-indigo-500/40"
                 }`}
             >
               {loading ? (
@@ -310,8 +308,8 @@ export default function DownloaderPage() {
                           onClick={() => setSelectedFormat(f.id)}
                           disabled={downloading}
                           className={`relative p-3 rounded-xl border-2 transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed ${isSelected
-                              ? `${getQualityColor(f.quality, true)} shadow-lg scale-[1.02]`
-                              : `bg-white/5 ${getQualityColor(f.quality, false)} hover:bg-white/10`
+                            ? `${getQualityColor(f.quality, true)} shadow-lg scale-[1.02]`
+                            : `bg-white/5 ${getQualityColor(f.quality, false)} hover:bg-white/10`
                             }`}
                         >
                           <div className="flex items-center justify-between gap-2">
@@ -394,7 +392,7 @@ export default function DownloaderPage() {
               {
                 icon: "🎨",
                 title: "Multiple Qualities",
-                desc: "Choose from 144p to 4K, or extract audio as MP3",
+                desc: "Choose from 144p to 1080p, or extract audio as MP3",
               },
               {
                 icon: "🔒",

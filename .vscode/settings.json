@@ -1,5 +1,8 @@
 {
     "python.analysis.extraPaths": [
-        "./"
-    ]
+        "./",
+        "./backend",
+        "c:/Users/Hasan-PC/Desktop/multi-downloader/backend/venv/Lib/site-packages"
+    ],
+    "python.defaultInterpreterPath": "${workspaceFolder}/backend/venv/Scripts/python.exe"
 }

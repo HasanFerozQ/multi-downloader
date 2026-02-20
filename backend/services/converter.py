@@ -24,14 +24,16 @@ class BaseConverter:
     @staticmethod
     def _get_unique_filename(original_filename: str, extension: str) -> Path:
         """Generate a unique path for output functionality."""
-        unique_id = uuid.uuid4().hex[:8]
+        raw_uuid = str(uuid.uuid4().hex)
+        unique_id = raw_uuid[0:8] # type: ignore
         safe_name = Path(original_filename).stem
         return OUTPUT_DIR / f"{safe_name}_{unique_id}.{extension.lstrip('.')}"
     
     @staticmethod
     def create_zip(files: List[Path], zip_name: str = "converted_files.zip") -> Path:
         """Zips a list of files and returns the zip path."""
-        zip_path = OUTPUT_DIR / f"{zip_name}_{uuid.uuid4().hex[:6]}.zip"
+        zip_uuid = str(uuid.uuid4().hex)
+        zip_path = OUTPUT_DIR / f"{zip_name}_{zip_uuid[0:6]}.zip" # type: ignore
         with zipfile.ZipFile(zip_path, 'w') as zf:
             for file in files:
                 zf.write(file, arcname=file.name)

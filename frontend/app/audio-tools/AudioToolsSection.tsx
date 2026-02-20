@@ -5,6 +5,7 @@ import { useDropzone } from "react-dropzone";
 import { Upload, Download, Loader2, Music, Sparkles, Activity, Play, Pause, Radio, Phone, Podcast, Mountain, X, Zap, ToggleLeft, ToggleRight } from "lucide-react";
 import { API_URL } from "@/config/api";
 import WaveSurfer from 'wavesurfer.js';
+import DoNotRefresh from "../components/DoNotRefresh";
 
 // Effect state — all toggles for backend deep processing
 type EffectState = {
@@ -368,6 +369,7 @@ export default function AudioToolsSection() {
 
     return (
         <div className="w-full max-w-5xl mx-auto flex flex-col gap-8 pb-20">
+            <DoNotRefresh visible={processing} />
             <div className="grid lg:grid-cols-3 gap-8">
                 {/* Left: Input */}
                 <div className="lg:col-span-1 bg-slate-900/50 border border-slate-700/50 rounded-2xl p-6 h-fit">
@@ -540,8 +542,8 @@ export default function AudioToolsSection() {
                                     <div className="w-full bg-slate-800 rounded-full h-2.5 overflow-hidden">
                                         <div
                                             className={`h-full rounded-full transition-all duration-500 ${processProgress === 100
-                                                    ? 'bg-emerald-500'
-                                                    : 'bg-gradient-to-r from-rose-500 via-pink-500 to-purple-500'
+                                                ? 'bg-emerald-500'
+                                                : 'bg-gradient-to-r from-rose-500 via-pink-500 to-purple-500'
                                                 }`}
                                             style={{ width: `${processProgress}%` }}
                                         />

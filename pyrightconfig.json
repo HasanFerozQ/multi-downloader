@@ -7,10 +7,14 @@
     ],
     "extraPaths": [
         ".",
-        "c:/Users/Hasan-PC/Desktop/multi-downloader"
+        "c:/Users/Hasan-PC/Desktop/multi-downloader",
+        "backend",
+        "c:/Users/Hasan-PC/Desktop/multi-downloader/backend/venv/Lib/site-packages"
     ],
     "include": [
         "backend",
         "frontend"
-    ]
+    ],
+    "venvPath": "c:/Users/Hasan-PC/Desktop/multi-downloader/backend",
+    "venv": "venv"
 }

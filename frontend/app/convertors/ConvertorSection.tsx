@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import { useDropzone } from "react-dropzone";
 import { Upload, FileAudio, FileImage, FileText, X, Download, Loader2, ImagePlus } from "lucide-react";
 import GifDownloader from "./GifDownloader";
+import DoNotRefresh from "../components/DoNotRefresh";
 
 interface ConvertorProps {
     type: 'image' | 'audio' | 'document';
@@ -173,6 +174,7 @@ function ConvertorInterface({ type }: ConvertorProps) {
 
     return (
         <div className="flex flex-col h-full gap-6">
+            <DoNotRefresh visible={uploading} />
             {/* Drop Zone */}
             <div
                 {...getRootProps()}

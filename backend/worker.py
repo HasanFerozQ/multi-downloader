@@ -115,39 +115,51 @@ def download_video_task(self, url: str, format_id: str, output_path: str):
                 cmd.insert(1, "--ffmpeg-location")
                 cmd.insert(2, ffmpeg_location)
         else:
-            # Video download
+            # Video download — platform-aware format selection
+            url_lower = url.lower()
+            is_youtube = "youtube.com" in url_lower or "youtu.be" in url_lower
+            
             if format_id == "best":
-                # Auto-best: prefer mp4/avc1 for compatibility if sending to browser/mobile
-                format_spec = "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best"
+                if is_youtube:
+                    # YouTube: prefer mp4/avc1 for compatibility
+                    format_spec = "bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best"
+                else:
+                    # Non-YouTube (FB/IG/X/TikTok): prefer H.264, flexible audio
+                    format_spec = "bestvideo[height<=1080][vcodec^=avc1]+bestaudio/bestvideo[height<=1080]+bestaudio/best"
                 cmd = [
                     "yt-dlp", 
                     "-f", format_spec, 
                     "--merge-output-format", "mp4", 
                     "--newline",
-                    "-o", output_path, # Force .mp4 filename for 'best' compatibility
+                    "-o", output_path,
                     url
                 ]
             else:
-                # Specific format selected (e.g. 4K/2K which might be VP9)
-                # Trust the ID. Don't force avc1 or it will fail to download 4K (which is VP9 on YT)
-                format_spec = f"{format_id}+bestaudio[ext=m4a]/bestaudio/best"
+                if is_youtube:
+                    # YouTube specific format: trust the format_id, prefer m4a audio
+                    format_spec = f"{format_id}+bestaudio[ext=m4a]/bestaudio/best"
+                else:
+                    # Non-YouTube: use flexible audio matching (X/Twitter doesn't use m4a)
+                    format_spec = f"{format_id}+bestaudio/best"
                 
-                # Use standard template to allow MKV/WEBM if stream is VP9/AV1
-                # We strip the extension from output_path and let yt-dlp add the correct one
                 base_path = os.path.splitext(output_path)[0]
                 cmd = [
                     "yt-dlp", 
                     "-f", format_spec, 
+                    "--merge-output-format", "mp4",
                     "--newline",
-                    "-o", f"{base_path}.%(ext)s", # Allow correct extension
+                    "-o", f"{base_path}.%(ext)s",
                     url
                 ]
             
             if ffmpeg_location:
                 cmd.insert(1, "--ffmpeg-location")
                 cmd.insert(2, ffmpeg_location)
-                # Only re-encode audio to AAC if valid, passing video through (even if VP9)
-                cmd.extend(["--postprocessor-args", "ffmpeg:-c:a aac -b:a 192k"])
+            
+            # Force H.264 video + AAC audio for non-YouTube to fix VP9 playback issues
+            if not is_youtube:
+                cmd.extend(["--postprocessor-args", "ffmpeg:-c:v libx264 -preset fast -crf 23 -c:a aac -b:a 192k"])
+            # YouTube: no postprocessor args needed — m4a audio is already AAC-compatible with MP4
         
         self.update_state(state='PROGRESS', meta={'progress': 5, 'status': 'Downloading'})
         

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useDropzone } from "react-dropzone";
 import {
     Image as ImageIcon,
@@ -14,6 +14,7 @@ import {
     ArrowDown,
     Zap,
 } from "lucide-react";
+import DoNotRefresh from "../components/DoNotRefresh";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -35,24 +36,26 @@ interface CompressionResult {
 
 // ── Tab Config ───────────────────────────────────────────────────────────────
 
-const TABS: { id: TabId; label: string; icon: typeof ImageIcon; desc: string; accept: Record<string, string[]>; maxFiles: number; maxSize: number }[] = [
+const TABS: { id: TabId; label: string; icon: typeof ImageIcon; desc: string; accept: Record<string, string[]>; maxFiles: number; maxSizePerFile: number; maxCombinedSize: number }[] = [
     {
         id: "image",
         label: "Image",
         icon: ImageIcon,
-        desc: "Compress JPG, PNG, WebP, GIF, BMP — batch up to 10 files",
+        desc: "Compress JPG, PNG, WebP, GIF, BMP — batch up to 10 files (100 MB total)",
         accept: { "image/*": [".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".svg"] },
         maxFiles: 10,
-        maxSize: 50 * 1024 * 1024,
+        maxSizePerFile: 100 * 1024 * 1024,
+        maxCombinedSize: 100 * 1024 * 1024,
     },
     {
         id: "video",
         label: "Video",
         icon: Video,
-        desc: "Compress MP4, MOV, AVI, MKV — max 500 MB per file",
+        desc: "Compress MP4, MOV, AVI, MKV — up to 5 files (500 MB total)",
         accept: { "video/*": [".mp4", ".mov", ".avi", ".mkv", ".webm"] },
-        maxFiles: 1,
-        maxSize: 500 * 1024 * 1024,
+        maxFiles: 5,
+        maxSizePerFile: 500 * 1024 * 1024,
+        maxCombinedSize: 500 * 1024 * 1024,
     },
 ];
 
@@ -84,13 +87,18 @@ export default function CompressorPage() {
     const [result, setResult] = useState<CompressionResult | null>(null);
     const [error, setError] = useState<string | null>(null);
     const progressTimer = useRef<NodeJS.Timeout | null>(null);
+    const autoDownloaded = useRef(false);
 
     const tabConfig = TABS.find((t) => t.id === activeTab)!;
+
+    // Compute combined size of current files
+    const combinedSize = files.reduce((sum, f) => sum + f.file.size, 0);
 
     const onDrop = useCallback(
         (accepted: File[]) => {
             setError(null);
             setResult(null);
+            autoDownloaded.current = false;
 
             if (accepted.length === 0) return;
 
@@ -101,35 +109,45 @@ export default function CompressorPage() {
                 return;
             }
 
+            // Per-file size check
             for (const f of toAdd) {
-                if (f.size > tabConfig.maxSize) {
-                    setError(`"${f.name}" is too large. Maximum is ${fmtSize(tabConfig.maxSize)}.`);
+                if (f.size > tabConfig.maxSizePerFile) {
+                    setError(`"${f.name}" is too large (${fmtSize(f.size)}). Maximum is ${fmtSize(tabConfig.maxSizePerFile)} per file.`);
                     return;
                 }
             }
 
+            // Combined size check
+            const currentTotal = files.reduce((sum, f) => sum + f.file.size, 0);
+            const newTotal = currentTotal + toAdd.reduce((sum, f) => sum + f.size, 0);
+            if (newTotal > tabConfig.maxCombinedSize) {
+                setError(`Combined file size (${fmtSize(newTotal)}) exceeds ${fmtSize(tabConfig.maxCombinedSize)} limit.`);
+                return;
+            }
+
             setFiles((prev) => [...prev, ...toAdd.map((f) => ({ file: f, id: uid() }))]);
         },
-        [files.length, tabConfig]
+        [files, tabConfig]
     );
 
     const { getRootProps, getInputProps, isDragActive } = useDropzone({
         onDrop,
         accept: tabConfig.accept,
         maxFiles: tabConfig.maxFiles,
-        maxSize: tabConfig.maxSize,
         disabled: compressing,
     });
 
     const removeFile = (id: string) => {
         setFiles((prev) => prev.filter((f) => f.id !== id));
         setResult(null);
+        autoDownloaded.current = false;
     };
 
     const clearAll = () => {
         setFiles([]);
         setResult(null);
         setError(null);
+        autoDownloaded.current = false;
     };
 
     const switchTab = (tab: TabId) => {
@@ -138,6 +156,7 @@ export default function CompressorPage() {
         setResult(null);
         setError(null);
         setProgress(0);
+        autoDownloaded.current = false;
     };
 
     // Simulated progress for responsiveness
@@ -163,11 +182,22 @@ export default function CompressorPage() {
         setProgressLabel("Complete!");
     };
 
+    // Auto-download trigger
+    const triggerDownload = (url: string, filename: string) => {
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    };
+
     const handleCompress = async () => {
         if (files.length === 0) return;
         setCompressing(true);
         setError(null);
         setResult(null);
+        autoDownloaded.current = false;
 
         const endpoint = `${API_URL}/compress/${activeTab}`;
         const formData = new FormData();
@@ -198,19 +228,29 @@ export default function CompressorPage() {
             const compressedSize = blob.size;
 
             const contentDisposition = res.headers.get("content-disposition");
-            let filename = files.length === 1
-                ? `${files[0].file.name.replace(/\.[^/.]+$/, "")}_Compressed${files[0].file.name.match(/\.[^/.]+$/)?.[0] || ""}`
-                : "compressed_images.zip";
+            let filename: string;
 
             if (contentDisposition) {
                 const match = contentDisposition.match(/filename="?(.+?)"?$/);
-                if (match) filename = match[1];
+                filename = match ? match[1] : `compressed_${activeTab}`;
+            } else if (files.length === 1) {
+                const originalName = files[0].file.name;
+                const dotIdx = originalName.lastIndexOf(".");
+                const baseName = dotIdx > 0 ? originalName.substring(0, dotIdx) : originalName;
+                const ext = dotIdx > 0 ? originalName.substring(dotIdx) : "";
+                filename = `${baseName}_Compressed${ext}`;
+            } else {
+                filename = activeTab === "image" ? "compressed_images.zip" : "compressed_videos.zip";
             }
 
             stopProgressSimulation();
 
             const url = URL.createObjectURL(blob);
             setResult({ originalSize: totalSize, compressedSize, compressedUrl: url, filename });
+
+            // Auto-download
+            triggerDownload(url, filename);
+            autoDownloaded.current = true;
         } catch (err: any) {
             stopProgressSimulation();
             setError(err.message || "Compression failed");
@@ -221,16 +261,14 @@ export default function CompressorPage() {
 
     const handleDownload = () => {
         if (!result) return;
-        const a = document.createElement("a");
-        a.href = result.compressedUrl;
-        a.download = result.filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
+        triggerDownload(result.compressedUrl, result.filename);
     };
 
     return (
         <main className="min-h-screen pt-24 px-4 pb-12 bg-slate-950">
+            {/* Do Not Refresh Warning */}
+            <DoNotRefresh visible={compressing} />
+
             <div className="max-w-5xl mx-auto">
                 {/* Header */}
                 <div className="text-center mb-10">
@@ -254,8 +292,8 @@ export default function CompressorPage() {
                                     onClick={() => switchTab(tab.id)}
                                     disabled={compressing}
                                     className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200 disabled:opacity-50 ${isActive
-                                            ? "bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-lg shadow-blue-500/25"
-                                            : "text-slate-400 hover:text-white hover:bg-slate-800/60"
+                                        ? "bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-lg shadow-blue-500/25"
+                                        : "text-slate-400 hover:text-white hover:bg-slate-800/60"
                                         }`}
                                 >
                                     <Icon size={16} />
@@ -277,10 +315,10 @@ export default function CompressorPage() {
                         <div
                             {...getRootProps()}
                             className={`border-2 border-dashed rounded-xl flex flex-col items-center justify-center p-10 cursor-pointer transition-all duration-200 min-h-[180px] ${compressing
-                                    ? "border-slate-700 opacity-50 cursor-not-allowed"
-                                    : isDragActive
-                                        ? "border-cyan-400 bg-cyan-500/10"
-                                        : "border-slate-700 hover:border-cyan-500/50 hover:bg-slate-800/30"
+                                ? "border-slate-700 opacity-50 cursor-not-allowed"
+                                : isDragActive
+                                    ? "border-cyan-400 bg-cyan-500/10"
+                                    : "border-slate-700 hover:border-cyan-500/50 hover:bg-slate-800/30"
                                 }`}
                         >
                             <input {...getInputProps()} />
@@ -289,7 +327,7 @@ export default function CompressorPage() {
                                 {isDragActive ? "Drop files here..." : "Drag & drop files, or click to browse"}
                             </p>
                             <p className="text-slate-500 text-xs mt-2">
-                                Max {tabConfig.maxFiles} file{tabConfig.maxFiles > 1 ? "s" : ""} · {fmtSize(tabConfig.maxSize)} each
+                                Max {tabConfig.maxFiles} file{tabConfig.maxFiles > 1 ? "s" : ""} · {fmtSize(tabConfig.maxSizePerFile)} each · {fmtSize(tabConfig.maxCombinedSize)} total
                             </p>
                         </div>
 
@@ -299,6 +337,7 @@ export default function CompressorPage() {
                                 <div className="flex items-center justify-between mb-2">
                                     <span className="text-sm font-semibold text-slate-300">
                                         {files.length} file{files.length > 1 ? "s" : ""} selected
+                                        <span className="text-slate-500 font-normal ml-2">({fmtSize(combinedSize)})</span>
                                     </span>
                                     <button onClick={clearAll} className="text-xs text-red-400 hover:text-red-300 flex items-center gap-1 transition-colors">
                                         <Trash2 size={12} /> Clear all
@@ -421,21 +460,21 @@ export default function CompressorPage() {
                                 <Zap size={20} className="text-blue-400" />
                             </div>
                             <h3 className="font-bold text-white mb-1 text-sm">Smart Compression</h3>
-                            <p className="text-slate-500 text-xs">Intelligent algorithms preserve quality while reducing file size</p>
+                            <p className="text-slate-500 text-xs">Intelligent algorithms reduce file sizes by up to 50% while preserving visual quality</p>
                         </div>
                         <div className="bg-slate-900/30 border border-slate-800 p-5 rounded-xl text-center">
                             <div className="w-10 h-10 bg-emerald-500/10 rounded-lg flex items-center justify-center mx-auto mb-3">
                                 <Upload size={20} className="text-emerald-400" />
                             </div>
                             <h3 className="font-bold text-white mb-1 text-sm">Batch Upload</h3>
-                            <p className="text-slate-500 text-xs">Compress multiple images at once</p>
+                            <p className="text-slate-500 text-xs">Compress up to 10 images or 5 videos at once — automatically zipped for download</p>
                         </div>
                         <div className="bg-slate-900/30 border border-slate-800 p-5 rounded-xl text-center">
                             <div className="w-10 h-10 bg-purple-500/10 rounded-lg flex items-center justify-center mx-auto mb-3">
                                 <Download size={20} className="text-purple-400" />
                             </div>
-                            <h3 className="font-bold text-white mb-1 text-sm">Instant Download</h3>
-                            <p className="text-slate-500 text-xs">Get your compressed files immediately — no email or signup</p>
+                            <h3 className="font-bold text-white mb-1 text-sm">Auto Download</h3>
+                            <p className="text-slate-500 text-xs">Compressed files download automatically — no extra clicks needed</p>
                         </div>
                     </div>
                 )}

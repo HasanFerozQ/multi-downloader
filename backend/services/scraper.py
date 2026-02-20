@@ -143,29 +143,71 @@ def get_video_info(url: str) -> Dict[str, Any]:
             seen_heights = set()
             seen_combinations = set()
             
+            # Detect platform for platform-specific format handling
+            url_lower = url.lower()
+            is_youtube = "youtube.com" in url_lower or "youtu.be" in url_lower
+            is_twitter = "x.com" in url_lower or "twitter.com" in url_lower
+            is_instagram = "instagram.com" in url_lower
+            is_tiktok = "tiktok.com" in url_lower
+            is_facebook = "facebook.com" in url_lower or "fb.watch" in url_lower
+            
             # Check if ANY audio stream exists in the formats list
             # If so, we can merge audio into video-only streams
+            # NOTE: .get('acodec', 'none') may return Python None, so we use `or 'none'`
             all_formats = info.get('formats', [])
-            has_separate_audio = any(f.get('acodec', 'none') != 'none' for f in all_formats)
+            has_separate_audio = any(
+                (f.get('acodec') or 'none') != 'none' for f in all_formats
+            )
+            
+            # Find best audio stream size for file size estimation
+            best_audio_size = 0
+            for af in all_formats:
+                af_vcodec = af.get('vcodec') or 'none'
+                af_acodec = af.get('acodec') or 'none'
+                if af_vcodec == 'none' and af_acodec != 'none':
+                    asize = af.get('filesize') or af.get('filesize_approx')
+                    if asize and asize > best_audio_size:
+                        best_audio_size = asize
             
             for f in all_formats:
                 height = f.get('height')
-                vcodec = f.get('vcodec', 'none')
-                acodec = f.get('acodec', 'none')
+                width = f.get('width')
+                # Handle None values: yt-dlp may set vcodec/acodec to None instead of 'none'
+                vcodec = f.get('vcodec') or 'none'
+                acodec = f.get('acodec') or 'none'
                 format_id = f.get("format_id")
                 
-                if not height or vcodec == 'none' or not format_id:
+                if vcodec == 'none' or not format_id:
                     continue
                 
-                if height < 144:
+                # If height is missing, try to infer from width (assume 16:9)
+                if not height and width:
+                    height = int(width * 9 / 16)
+                
+                # Skip formats without any resolution info
+                if not height:
                     continue
                 
-                combo_key = f"{height}_{vcodec[:4]}"
+                # For portrait videos (e.g. Instagram Reels, TikTok), height > width
+                # Use the shorter dimension as the quality indicator
+                if width and height > width:
+                    quality_height = width  # e.g. 1080x1920 portrait → 1080p
+                else:
+                    quality_height = height
                 
-                if height in seen_heights or combo_key in seen_combinations:
+                if quality_height < 144:
                     continue
                 
-                seen_heights.add(height)
+                # STRICT 1080p LIMIT (User Request)
+                if quality_height > 1080:
+                    continue
+                
+                combo_key = f"{quality_height}_{vcodec[:4]}"
+                
+                if quality_height in seen_heights or combo_key in seen_combinations:
+                    continue
+                
+                seen_heights.add(quality_height)
                 seen_combinations.add(combo_key)
                 
                 quality_labels = {
@@ -175,9 +217,6 @@ def get_video_info(url: str) -> Dict[str, Any]:
                     480:  "480p SD",
                     720:  "720p HD",
                     1080: "1080p Full HD",
-                    1440: "1440p 2K",
-                    2160: "2160p 4K",
-                    4320: "4320p 8K",
                 }
                 
                 filesize = f.get('filesize') or f.get('filesize_approx')
@@ -185,27 +224,53 @@ def get_video_info(url: str) -> Dict[str, Any]:
                 
                 vbr = f.get('vbr')
                 
-                # If format has its own audio, great.
-                # If not, but we have separate audio available, we will merge it.
-                # So we report has_audio=True so frontend doesn't show "No Audio" badge.
+                # Audio availability logic:
+                # - X/Twitter: always True — audio IS extractable even when 
+                #   yt-dlp doesn't list separate audio streams
+                # - Others: True if stream has audio OR separate audio exists
                 stream_has_audio = acodec != "none"
-                effective_has_audio = stream_has_audio or has_separate_audio
+                if is_twitter:
+                    effective_has_audio = True
+                else:
+                    effective_has_audio = stream_has_audio or has_separate_audio
                 
                 format_entry = {
                     "id": format_id,
-                    "quality": quality_labels.get(height, f"{height}p"),
-                    "height": height,
+                    "quality": quality_labels.get(quality_height, f"{quality_height}p"),
+                    "height": quality_height,
                     "ext": "mp4",
                     "has_audio": effective_has_audio,
                     "vcodec": vcodec,
                 }
                 
+                # Add audio size to video-only streams for more accurate file size display
+                if filesize and not stream_has_audio and (has_separate_audio or is_twitter) and best_audio_size > 0:
+                    filesize_with_audio = filesize + best_audio_size
+                    filesize_mb = round(filesize_with_audio / (1024 * 1024), 1)
+
                 if filesize_mb:
                     format_entry["size_mb"] = filesize_mb
                 if vbr:
                     format_entry["bitrate"] = round(vbr / 1000)
                 
                 formats.append(format_entry)
+            
+            # FALLBACK: If no height-based formats found (common for Instagram/TikTok),
+            # add a single "Best Quality" option so the user can still download
+            if not formats and all_formats:
+                # Check if there's any video format at all
+                video_formats_exist = any(
+                    f.get('vcodec', 'none') != 'none' for f in all_formats
+                )
+                if video_formats_exist:
+                    formats.append({
+                        "id": "best",
+                        "quality": "Best Quality",
+                        "height": 720,  # Assume HD for sorting
+                        "ext": "mp4",
+                        "has_audio": True,
+                        "vcodec": "auto",
+                    })
             
             formats.sort(key=lambda x: x["height"])
             
