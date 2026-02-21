@@ -1,6 +1,42 @@
 "use client";
 import { useState } from "react";
 import DoNotRefresh from "../components/DoNotRefresh";
+import FAQSection from "../components/FAQSection";
+
+const DOWNLOADER_FAQ = [
+  {
+    q: "Which platforms are supported?",
+    a: "King Tools supports YouTube, TikTok, Instagram (Reels, posts), Facebook (public videos), and X/Twitter. Simply paste any video URL from these platforms to get started.",
+  },
+  {
+    q: "What quality options are available?",
+    a: "Depending on the source platform, you can choose from 144p up to 1080p Full HD. YouTube offers the most resolution options; Instagram and TikTok typically max out at 1080p. You can also download audio-only as MP3.",
+  },
+  {
+    q: "Why won't some YouTube videos download?",
+    a: "Age-restricted or member-only videos require YouTube cookies to download. Private videos and region-locked content cannot be downloaded regardless of cookies. Music videos may also be blocked due to licensing restrictions.",
+  },
+  {
+    q: "The download shows 0% and gets stuck — what do I do?",
+    a: "This usually means the backend server connection was lost mid-download. Refresh the page and try again. If the issue persists, it may be a temporary platform-side restriction — wait a few minutes and retry.",
+  },
+  {
+    q: "Why is the downloaded video missing audio?",
+    a: "For X (Twitter) and some Facebook videos, video and audio tracks are separate streams that need to be merged. This is handled automatically — if audio is missing, the merge step may have failed. Try downloading again.",
+  },
+  {
+    q: "Can I download Instagram private posts or Stories?",
+    a: "No. Private posts and Stories require authentication. Only public Instagram content can be downloaded without an account.",
+  },
+  {
+    q: "Is downloading videos legal?",
+    a: "It depends on your jurisdiction and how you use the content. Downloading for personal, non-commercial use is generally tolerated, but redistributing or monetizing downloaded content without permission violates platform terms of service and copyright law.",
+  },
+  {
+    q: "What format are downloaded videos?",
+    a: "All videos are downloaded and merged into MP4 (H.264 video + AAC audio) for maximum compatibility across devices and players. Audio-only downloads are MP3.",
+  },
+];
 
 export default function DownloaderPage() {
   const [url, setUrl] = useState("");
@@ -180,255 +216,256 @@ export default function DownloaderPage() {
   };
 
   return (
-    <div className="min-h-screen text-white">
-      <DoNotRefresh visible={downloading || loading} />
-      <div className="max-w-5xl mx-auto pt-8 px-4 pb-12">
+    <>
+      <div className="min-h-screen text-white">
+        <DoNotRefresh visible={downloading || loading} />
+        <div className="max-w-5xl mx-auto pt-8 px-4 pb-12">
 
-        {/* Header */}
-        <div className="text-center mb-10">
-          <h1 className="text-5xl md:text-6xl font-extrabold mb-3 bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
-            5-in-1 Video Downloader
-          </h1>
-          <p className="text-slate-400 text-lg max-w-2xl mx-auto">
-            Download videos from <strong className="text-blue-400">YouTube</strong>, <strong className="text-pink-400">Instagram</strong>, <strong className="text-cyan-400">TikTok</strong>, <strong className="text-blue-300">Facebook</strong>, and <strong className="text-slate-300">X (Twitter)</strong> — in any quality up to Full HD (1080p)
-          </p>
-        </div>
-
-        {/* URL Input */}
-        <div className="bg-white/5 backdrop-blur-sm p-6 rounded-2xl border border-indigo-500/30 shadow-2xl mb-8">
-          <div className="flex flex-col sm:flex-row gap-3">
-            <input
-              type="text"
-              placeholder="🔗 Paste your video link here..."
-              className="flex-1 p-4 rounded-xl bg-white/5 border border-indigo-400/40 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-white placeholder-slate-500 text-lg"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleFetch()}
-            />
-            <button
-              onClick={handleFetch}
-              disabled={loading}
-              className={`px-8 py-4 rounded-xl font-bold text-lg transition-all shadow-lg ${loading
-                ? "bg-slate-700 cursor-not-allowed opacity-60"
-                : "bg-gradient-to-r from-indigo-500 to-purple-600 hover:opacity-90 active:scale-95 hover:shadow-indigo-500/40"
-                }`}
-            >
-              {loading ? (
-                <span className="flex items-center gap-2">
-                  <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
-                  Fetching...
-                </span>
-              ) : (
-                "🔗 Fetch Video"
-              )}
-            </button>
+          {/* Header */}
+          <div className="text-center mb-10">
+            <h1 className="text-5xl md:text-6xl font-extrabold mb-3 bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+              5-in-1 Video Downloader
+            </h1>
+            <p className="text-slate-400 text-lg max-w-2xl mx-auto">
+              Download videos from <strong className="text-blue-400">YouTube</strong>, <strong className="text-pink-400">Instagram</strong>, <strong className="text-cyan-400">TikTok</strong>, <strong className="text-blue-300">Facebook</strong>, and <strong className="text-slate-300">X (Twitter)</strong> — in any quality up to Full HD (1080p)
+            </p>
           </div>
 
-          {error && (
-            <div className="mt-4 p-4 bg-red-500/10 border border-red-500/40 rounded-xl text-red-400 flex items-center gap-2 text-sm">
-              <span className="text-lg">⚠️</span>
-              <span>{error}</span>
+          {/* URL Input */}
+          <div className="bg-white/5 backdrop-blur-sm p-6 rounded-2xl border border-indigo-500/30 shadow-2xl mb-8">
+            <div className="flex flex-col sm:flex-row gap-3">
+              <input
+                type="text"
+                placeholder="🔗 Paste your video link here..."
+                className="flex-1 p-4 rounded-xl bg-white/5 border border-indigo-400/40 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-white placeholder-slate-500 text-lg"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleFetch()}
+              />
+              <button
+                onClick={handleFetch}
+                disabled={loading}
+                className={`px-8 py-4 rounded-xl font-bold text-lg transition-all shadow-lg ${loading
+                  ? "bg-slate-700 cursor-not-allowed opacity-60"
+                  : "bg-gradient-to-r from-indigo-500 to-purple-600 hover:opacity-90 active:scale-95 hover:shadow-indigo-500/40"
+                  }`}
+              >
+                {loading ? (
+                  <span className="flex items-center gap-2">
+                    <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Fetching...
+                  </span>
+                ) : (
+                  "🔗 Fetch Video"
+                )}
+              </button>
+            </div>
+
+            {error && (
+              <div className="mt-4 p-4 bg-red-500/10 border border-red-500/40 rounded-xl text-red-400 flex items-center gap-2 text-sm">
+                <span className="text-lg">⚠️</span>
+                <span>{error}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Video Info & Download */}
+          {videoData && (
+            <div className="bg-white/5 backdrop-blur-sm rounded-2xl border border-indigo-500/30 shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
+
+              {/* Video Preview */}
+              <div className="flex flex-col md:flex-row gap-6 p-6">
+                <div className="md:w-72 flex-shrink-0">
+                  {videoData.thumbnail ? (
+                    <img
+                      src={videoData.thumbnail}
+                      className="w-full rounded-xl shadow-lg border border-slate-700"
+                      alt={videoData.title || "Video Thumbnail"}
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = "none";
+                      }}
+                    />
+                  ) : (
+                    <div className="w-full aspect-video rounded-xl bg-slate-800 flex items-center justify-center text-slate-500 text-5xl border border-slate-700">
+                      🎬
+                    </div>
+                  )}
+                  <div className="mt-4 space-y-2.5 text-sm">
+                    {videoData.uploader && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-slate-500">👤 Uploader</span>
+                        <span className="text-white font-medium truncate ml-2 max-w-[160px]">{videoData.uploader}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-500">⏱️ Duration</span>
+                      <span className="text-white font-medium">{formatDuration(videoData.duration)}</span>
+                    </div>
+                    {videoData.views != null && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-slate-500">👁️ Views</span>
+                        <span className="text-white font-medium">{videoData.views?.toLocaleString?.() ?? "N/A"}</span>
+                      </div>
+                    )}
+                    {videoData.platform && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-slate-500">📱 Platform</span>
+                        <span className="text-white font-medium">{videoData.platform}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-xl md:text-2xl font-bold mb-2 text-white leading-tight">
+                    {videoData.title}
+                  </h2>
+
+                  {videoData.description && (
+                    <p className="text-slate-400 text-sm mb-5 line-clamp-2">
+                      {videoData.description}
+                    </p>
+                  )}
+
+                  {/* Quality Selection */}
+                  <div className="mb-5">
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 mb-3">
+                      Select Quality
+                    </h3>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5">
+                      {(videoData.formats || []).map((f: any) => {
+                        const isSelected = selectedFormat === f.id;
+                        const badge = getQualityBadge(f.quality);
+                        return (
+                          <button
+                            key={f.id}
+                            onClick={() => setSelectedFormat(f.id)}
+                            disabled={downloading}
+                            className={`relative p-3 rounded-xl border-2 transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed ${isSelected
+                              ? `${getQualityColor(f.quality, true)} shadow-lg scale-[1.02]`
+                              : `bg-white/5 ${getQualityColor(f.quality, false)} hover:bg-white/10`
+                              }`}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="text-left">
+                                <div className="font-bold text-sm text-white">{f.quality}</div>
+                                {f.size_mb && (
+                                  <div className="text-xs text-slate-400 mt-0.5">
+                                    {formatFileSize(f.size_mb)}
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex flex-col items-end gap-1">
+                                {badge.label && (
+                                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${badge.color} text-white`}>
+                                    {badge.label}
+                                  </span>
+                                )}
+                                {f.has_audio === false && (
+                                  <span className="text-[10px] text-slate-500">🔇 No audio</span>
+                                )}
+                              </div>
+                            </div>
+                            {isSelected && (
+                              <div className="absolute top-1.5 right-1.5 text-xs text-white bg-white/20 rounded-full w-5 h-5 flex items-center justify-center font-bold">
+                                ✓
+                              </div>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Download Progress or Button */}
+                  {downloading ? (
+                    <div className="space-y-3 bg-white/5 rounded-xl p-4 border border-slate-700">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-slate-400">{status}</span>
+                        <span className="font-bold text-indigo-400">{progress}%</span>
+                      </div>
+                      <div className="relative w-full h-3 bg-slate-800 rounded-full overflow-hidden">
+                        <div
+                          className="absolute top-0 left-0 h-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 transition-all duration-300 ease-out rounded-full"
+                          style={{ width: `${progress}%` }}
+                        >
+                          <div className="absolute inset-0 bg-white/20 animate-pulse" />
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-center gap-2 text-sm text-slate-400">
+                        <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                        <span>Downloading...</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={handleDownload}
+                      disabled={!selectedFormat}
+                      className="w-full py-4 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 rounded-xl font-bold text-lg shadow-lg hover:shadow-green-500/30 transition-all active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:shadow-none"
+                    >
+                      ⬇️ Download Now
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Features — empty state */}
+          {!videoData && !loading && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mt-10">
+              {[
+                {
+                  icon: "⚡",
+                  title: "Lightning Fast",
+                  desc: "Download videos in seconds with server-side processing",
+                },
+                {
+                  icon: "🎨",
+                  title: "Multiple Qualities",
+                  desc: "Choose from 144p to 1080p, or extract audio as MP3",
+                },
+                {
+                  icon: "🔒",
+                  title: "Safe & Private",
+                  desc: "No data collection — files auto-delete after 30 minutes",
+                },
+                {
+                  icon: "🌐",
+                  title: "5 Platforms",
+                  desc: "YouTube, Instagram, TikTok, Facebook, and X (Twitter)",
+                },
+                {
+                  icon: "📊",
+                  title: "Real-Time Progress",
+                  desc: "Live download progress bar with WebSocket updates",
+                },
+                {
+                  icon: "🎵",
+                  title: "Audio Extraction",
+                  desc: "Extract MP3 audio from any video with one click",
+                },
+              ].map((item) => (
+                <div
+                  key={item.title}
+                  className="bg-white/5 border border-indigo-500/20 rounded-2xl p-6 text-center hover:bg-white/10 hover:border-indigo-500/40 transition-all duration-300"
+                >
+                  <div className="text-4xl mb-3">{item.icon}</div>
+                  <h3 className="font-bold text-lg mb-1">{item.title}</h3>
+                  <p className="text-slate-400 text-sm">{item.desc}</p>
+                </div>
+              ))}
             </div>
           )}
         </div>
 
-        {/* Video Info & Download */}
-        {videoData && (
-          <div className="bg-white/5 backdrop-blur-sm rounded-2xl border border-indigo-500/30 shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
-
-            {/* Video Preview */}
-            <div className="flex flex-col md:flex-row gap-6 p-6">
-              <div className="md:w-72 flex-shrink-0">
-                {videoData.thumbnail ? (
-                  <img
-                    src={videoData.thumbnail}
-                    className="w-full rounded-xl shadow-lg border border-slate-700"
-                    alt={videoData.title || "Video Thumbnail"}
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = "none";
-                    }}
-                  />
-                ) : (
-                  <div className="w-full aspect-video rounded-xl bg-slate-800 flex items-center justify-center text-slate-500 text-5xl border border-slate-700">
-                    🎬
-                  </div>
-                )}
-                <div className="mt-4 space-y-2.5 text-sm">
-                  {videoData.uploader && (
-                    <div className="flex justify-between items-center">
-                      <span className="text-slate-500">👤 Uploader</span>
-                      <span className="text-white font-medium truncate ml-2 max-w-[160px]">{videoData.uploader}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between items-center">
-                    <span className="text-slate-500">⏱️ Duration</span>
-                    <span className="text-white font-medium">{formatDuration(videoData.duration)}</span>
-                  </div>
-                  {videoData.views != null && (
-                    <div className="flex justify-between items-center">
-                      <span className="text-slate-500">👁️ Views</span>
-                      <span className="text-white font-medium">{videoData.views?.toLocaleString?.() ?? "N/A"}</span>
-                    </div>
-                  )}
-                  {videoData.platform && (
-                    <div className="flex justify-between items-center">
-                      <span className="text-slate-500">📱 Platform</span>
-                      <span className="text-white font-medium">{videoData.platform}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex-1 min-w-0">
-                <h2 className="text-xl md:text-2xl font-bold mb-2 text-white leading-tight">
-                  {videoData.title}
-                </h2>
-
-                {videoData.description && (
-                  <p className="text-slate-400 text-sm mb-5 line-clamp-2">
-                    {videoData.description}
-                  </p>
-                )}
-
-                {/* Quality Selection */}
-                <div className="mb-5">
-                  <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 mb-3">
-                    Select Quality
-                  </h3>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5">
-                    {(videoData.formats || []).map((f: any) => {
-                      const isSelected = selectedFormat === f.id;
-                      const badge = getQualityBadge(f.quality);
-                      return (
-                        <button
-                          key={f.id}
-                          onClick={() => setSelectedFormat(f.id)}
-                          disabled={downloading}
-                          className={`relative p-3 rounded-xl border-2 transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed ${isSelected
-                            ? `${getQualityColor(f.quality, true)} shadow-lg scale-[1.02]`
-                            : `bg-white/5 ${getQualityColor(f.quality, false)} hover:bg-white/10`
-                            }`}
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="text-left">
-                              <div className="font-bold text-sm text-white">{f.quality}</div>
-                              {f.size_mb && (
-                                <div className="text-xs text-slate-400 mt-0.5">
-                                  {formatFileSize(f.size_mb)}
-                                </div>
-                              )}
-                            </div>
-                            <div className="flex flex-col items-end gap-1">
-                              {badge.label && (
-                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${badge.color} text-white`}>
-                                  {badge.label}
-                                </span>
-                              )}
-                              {f.has_audio === false && (
-                                <span className="text-[10px] text-slate-500">🔇 No audio</span>
-                              )}
-                            </div>
-                          </div>
-                          {isSelected && (
-                            <div className="absolute top-1.5 right-1.5 text-xs text-white bg-white/20 rounded-full w-5 h-5 flex items-center justify-center font-bold">
-                              ✓
-                            </div>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Download Progress or Button */}
-                {downloading ? (
-                  <div className="space-y-3 bg-white/5 rounded-xl p-4 border border-slate-700">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-slate-400">{status}</span>
-                      <span className="font-bold text-indigo-400">{progress}%</span>
-                    </div>
-                    <div className="relative w-full h-3 bg-slate-800 rounded-full overflow-hidden">
-                      <div
-                        className="absolute top-0 left-0 h-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 transition-all duration-300 ease-out rounded-full"
-                        style={{ width: `${progress}%` }}
-                      >
-                        <div className="absolute inset-0 bg-white/20 animate-pulse" />
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-center gap-2 text-sm text-slate-400">
-                      <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                      </svg>
-                      <span>Downloading...</span>
-                    </div>
-                  </div>
-                ) : (
-                  <button
-                    onClick={handleDownload}
-                    disabled={!selectedFormat}
-                    className="w-full py-4 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 rounded-xl font-bold text-lg shadow-lg hover:shadow-green-500/30 transition-all active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:shadow-none"
-                  >
-                    ⬇️ Download Now
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Features — empty state */}
-        {!videoData && !loading && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mt-10">
-            {[
-              {
-                icon: "⚡",
-                title: "Lightning Fast",
-                desc: "Download videos in seconds with server-side processing",
-              },
-              {
-                icon: "🎨",
-                title: "Multiple Qualities",
-                desc: "Choose from 144p to 1080p, or extract audio as MP3",
-              },
-              {
-                icon: "🔒",
-                title: "Safe & Private",
-                desc: "No data collection — files auto-delete after 30 minutes",
-              },
-              {
-                icon: "🌐",
-                title: "5 Platforms",
-                desc: "YouTube, Instagram, TikTok, Facebook, and X (Twitter)",
-              },
-              {
-                icon: "📊",
-                title: "Real-Time Progress",
-                desc: "Live download progress bar with WebSocket updates",
-              },
-              {
-                icon: "🎵",
-                title: "Audio Extraction",
-                desc: "Extract MP3 audio from any video with one click",
-              },
-            ].map((item) => (
-              <div
-                key={item.title}
-                className="bg-white/5 border border-indigo-500/20 rounded-2xl p-6 text-center hover:bg-white/10 hover:border-indigo-500/40 transition-all duration-300"
-              >
-                <div className="text-4xl mb-3">{item.icon}</div>
-                <h3 className="font-bold text-lg mb-1">{item.title}</h3>
-                <p className="text-slate-400 text-sm">{item.desc}</p>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <style jsx>{`
+        <style jsx>{`
         .line-clamp-2 {
           display: -webkit-box;
           -webkit-line-clamp: 2;
@@ -436,6 +473,10 @@ export default function DownloaderPage() {
           overflow: hidden;
         }
       `}</style>
-    </div>
+      </div>
+
+      {/* FAQ */}
+      <FAQSection items={DOWNLOADER_FAQ} title="Video Downloader — FAQ" />
+    </>
   );
 }

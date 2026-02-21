@@ -15,6 +15,42 @@ import {
     Zap,
 } from "lucide-react";
 import DoNotRefresh from "../components/DoNotRefresh";
+import FAQSection from "../components/FAQSection";
+
+const COMPRESSOR_FAQ = [
+    {
+        q: "What image formats can I compress?",
+        a: "King Tools supports JPEG, PNG, WebP, and BMP. Images are re-encoded at reduced quality settings while preserving visual fidelity — typical savings range from 30% to 75%.",
+    },
+    {
+        q: "What video formats are supported for compression?",
+        a: "MP4, MKV, MOV, and AVI are all supported. Videos are re-encoded using H.264 with optimized bitrate settings, keeping the output as an MP4 file.",
+    },
+    {
+        q: "Will compressing reduce visible quality?",
+        a: "For images, the tool targets a quality level that is visually indistinguishable from the original for most use cases. For video, a constant rate factor (CRF) is used to balance quality and file size — you can decide based on the before/after size shown.",
+    },
+    {
+        q: "Can I compress multiple files at once?",
+        a: "Yes — you can upload up to 10 images or 5 videos at once. When multiple files are processed, they are automatically bundled into a single ZIP file for a one-click download.",
+    },
+    {
+        q: "How much will my file shrink?",
+        a: "It depends on the original file's existing compression level. A raw PNG photo can shrink by 70%+. An already-compressed JPEG may only shrink 15–30%. The tool shows you exact before/after sizes so you always know what you're getting.",
+    },
+    {
+        q: "Is there a file size limit?",
+        a: "Images are capped at 20MB per file. Videos are capped at 100MB per file. If your video is larger, consider splitting it first.",
+    },
+    {
+        q: "Are my files stored after compression?",
+        a: "No. Files are processed in a temporary server directory and automatically deleted after you download. Nothing is stored or accessible after your session ends.",
+    },
+    {
+        q: "Can I compress documents (PDF, Word)?",
+        a: "Document compression is not currently supported — the compressor focuses on images and videos only. Use the Convertor tool to convert documents between formats.",
+    },
+];
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -265,220 +301,225 @@ export default function CompressorPage() {
     };
 
     return (
-        <main className="min-h-screen pt-24 px-4 pb-12 bg-slate-950">
-            {/* Do Not Refresh Warning */}
-            <DoNotRefresh visible={compressing} />
+        <>
+            <main className="min-h-screen pt-24 px-4 pb-12 bg-slate-950">
+                {/* Do Not Refresh Warning */}
+                <DoNotRefresh visible={compressing} />
 
-            <div className="max-w-5xl mx-auto">
-                {/* Header */}
-                <div className="text-center mb-10">
-                    <h1 className="text-4xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-cyan-400 to-emerald-400 mb-3">
-                        Media Compressor
-                    </h1>
-                    <p className="text-slate-400 text-lg max-w-2xl mx-auto">
-                        Reduce file sizes without losing quality — images and videos.
-                    </p>
-                </div>
-
-                {/* Tabs */}
-                <div className="flex justify-center mb-8">
-                    <div className="inline-flex bg-slate-900/60 border border-slate-800 rounded-2xl p-1.5 gap-1">
-                        {TABS.map((tab) => {
-                            const Icon = tab.icon;
-                            const isActive = activeTab === tab.id;
-                            return (
-                                <button
-                                    key={tab.id}
-                                    onClick={() => switchTab(tab.id)}
-                                    disabled={compressing}
-                                    className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200 disabled:opacity-50 ${isActive
-                                        ? "bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-lg shadow-blue-500/25"
-                                        : "text-slate-400 hover:text-white hover:bg-slate-800/60"
-                                        }`}
-                                >
-                                    <Icon size={16} />
-                                    {tab.label}
-                                </button>
-                            );
-                        })}
-                    </div>
-                </div>
-
-                {/* Main Card */}
-                <div className="bg-slate-900/50 border border-slate-800 rounded-2xl overflow-hidden">
-                    <div className="px-6 pt-6 pb-0">
-                        <p className="text-sm text-slate-500 text-center">{tabConfig.desc}</p>
+                <div className="max-w-5xl mx-auto">
+                    {/* Header */}
+                    <div className="text-center mb-10">
+                        <h1 className="text-4xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-cyan-400 to-emerald-400 mb-3">
+                            Media Compressor
+                        </h1>
+                        <p className="text-slate-400 text-lg max-w-2xl mx-auto">
+                            Reduce file sizes without losing quality — images and videos.
+                        </p>
                     </div>
 
-                    <div className="p-6">
-                        {/* Dropzone */}
-                        <div
-                            {...getRootProps()}
-                            className={`border-2 border-dashed rounded-xl flex flex-col items-center justify-center p-10 cursor-pointer transition-all duration-200 min-h-[180px] ${compressing
-                                ? "border-slate-700 opacity-50 cursor-not-allowed"
-                                : isDragActive
-                                    ? "border-cyan-400 bg-cyan-500/10"
-                                    : "border-slate-700 hover:border-cyan-500/50 hover:bg-slate-800/30"
-                                }`}
-                        >
-                            <input {...getInputProps()} />
-                            <Upload size={40} className={`mb-4 ${isDragActive ? "text-cyan-400" : "text-slate-500"}`} />
-                            <p className="text-slate-300 font-medium">
-                                {isDragActive ? "Drop files here..." : "Drag & drop files, or click to browse"}
-                            </p>
-                            <p className="text-slate-500 text-xs mt-2">
-                                Max {tabConfig.maxFiles} file{tabConfig.maxFiles > 1 ? "s" : ""} · {fmtSize(tabConfig.maxSizePerFile)} each · {fmtSize(tabConfig.maxCombinedSize)} total
-                            </p>
+                    {/* Tabs */}
+                    <div className="flex justify-center mb-8">
+                        <div className="inline-flex bg-slate-900/60 border border-slate-800 rounded-2xl p-1.5 gap-1">
+                            {TABS.map((tab) => {
+                                const Icon = tab.icon;
+                                const isActive = activeTab === tab.id;
+                                return (
+                                    <button
+                                        key={tab.id}
+                                        onClick={() => switchTab(tab.id)}
+                                        disabled={compressing}
+                                        className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200 disabled:opacity-50 ${isActive
+                                            ? "bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-lg shadow-blue-500/25"
+                                            : "text-slate-400 hover:text-white hover:bg-slate-800/60"
+                                            }`}
+                                    >
+                                        <Icon size={16} />
+                                        {tab.label}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {/* Main Card */}
+                    <div className="bg-slate-900/50 border border-slate-800 rounded-2xl overflow-hidden">
+                        <div className="px-6 pt-6 pb-0">
+                            <p className="text-sm text-slate-500 text-center">{tabConfig.desc}</p>
                         </div>
 
-                        {/* File List */}
-                        {files.length > 0 && (
-                            <div className="mt-5 space-y-2">
-                                <div className="flex items-center justify-between mb-2">
-                                    <span className="text-sm font-semibold text-slate-300">
-                                        {files.length} file{files.length > 1 ? "s" : ""} selected
-                                        <span className="text-slate-500 font-normal ml-2">({fmtSize(combinedSize)})</span>
-                                    </span>
-                                    <button onClick={clearAll} className="text-xs text-red-400 hover:text-red-300 flex items-center gap-1 transition-colors">
-                                        <Trash2 size={12} /> Clear all
-                                    </button>
-                                </div>
-                                {files.map((item) => (
-                                    <div
-                                        key={item.id}
-                                        className="flex items-center justify-between bg-slate-800/50 border border-slate-700/50 rounded-lg px-4 py-2.5"
-                                    >
-                                        <div className="flex items-center gap-3 min-w-0">
-                                            <div className="p-1.5 bg-slate-700 rounded-md">
-                                                {activeTab === "image" ? (
-                                                    <ImageIcon size={14} className="text-blue-400" />
-                                                ) : (
-                                                    <Video size={14} className="text-emerald-400" />
-                                                )}
-                                            </div>
-                                            <span className="text-sm text-slate-300 truncate max-w-[300px]">{item.file.name}</span>
-                                            <span className="text-xs text-slate-500 flex-shrink-0">{fmtSize(item.file.size)}</span>
-                                        </div>
-                                        <button
-                                            onClick={() => removeFile(item.id)}
-                                            disabled={compressing}
-                                            className="text-slate-500 hover:text-red-400 transition-colors disabled:opacity-50 ml-2"
-                                        >
-                                            <Trash2 size={14} />
+                        <div className="p-6">
+                            {/* Dropzone */}
+                            <div
+                                {...getRootProps()}
+                                className={`border-2 border-dashed rounded-xl flex flex-col items-center justify-center p-10 cursor-pointer transition-all duration-200 min-h-[180px] ${compressing
+                                    ? "border-slate-700 opacity-50 cursor-not-allowed"
+                                    : isDragActive
+                                        ? "border-cyan-400 bg-cyan-500/10"
+                                        : "border-slate-700 hover:border-cyan-500/50 hover:bg-slate-800/30"
+                                    }`}
+                            >
+                                <input {...getInputProps()} />
+                                <Upload size={40} className={`mb-4 ${isDragActive ? "text-cyan-400" : "text-slate-500"}`} />
+                                <p className="text-slate-300 font-medium">
+                                    {isDragActive ? "Drop files here..." : "Drag & drop files, or click to browse"}
+                                </p>
+                                <p className="text-slate-500 text-xs mt-2">
+                                    Max {tabConfig.maxFiles} file{tabConfig.maxFiles > 1 ? "s" : ""} · {fmtSize(tabConfig.maxSizePerFile)} each · {fmtSize(tabConfig.maxCombinedSize)} total
+                                </p>
+                            </div>
+
+                            {/* File List */}
+                            {files.length > 0 && (
+                                <div className="mt-5 space-y-2">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className="text-sm font-semibold text-slate-300">
+                                            {files.length} file{files.length > 1 ? "s" : ""} selected
+                                            <span className="text-slate-500 font-normal ml-2">({fmtSize(combinedSize)})</span>
+                                        </span>
+                                        <button onClick={clearAll} className="text-xs text-red-400 hover:text-red-300 flex items-center gap-1 transition-colors">
+                                            <Trash2 size={12} /> Clear all
                                         </button>
                                     </div>
-                                ))}
+                                    {files.map((item) => (
+                                        <div
+                                            key={item.id}
+                                            className="flex items-center justify-between bg-slate-800/50 border border-slate-700/50 rounded-lg px-4 py-2.5"
+                                        >
+                                            <div className="flex items-center gap-3 min-w-0">
+                                                <div className="p-1.5 bg-slate-700 rounded-md">
+                                                    {activeTab === "image" ? (
+                                                        <ImageIcon size={14} className="text-blue-400" />
+                                                    ) : (
+                                                        <Video size={14} className="text-emerald-400" />
+                                                    )}
+                                                </div>
+                                                <span className="text-sm text-slate-300 truncate max-w-[300px]">{item.file.name}</span>
+                                                <span className="text-xs text-slate-500 flex-shrink-0">{fmtSize(item.file.size)}</span>
+                                            </div>
+                                            <button
+                                                onClick={() => removeFile(item.id)}
+                                                disabled={compressing}
+                                                className="text-slate-500 hover:text-red-400 transition-colors disabled:opacity-50 ml-2"
+                                            >
+                                                <Trash2 size={14} />
+                                            </button>
+                                        </div>
+                                    ))}
 
-                                {/* Progress Bar */}
-                                {compressing && (
-                                    <div className="mt-4">
-                                        <div className="flex justify-between text-xs text-slate-400 mb-1.5">
-                                            <span className="flex items-center gap-1.5">
-                                                <Loader2 size={12} className="animate-spin" />
-                                                {progressLabel}
+                                    {/* Progress Bar */}
+                                    {compressing && (
+                                        <div className="mt-4">
+                                            <div className="flex justify-between text-xs text-slate-400 mb-1.5">
+                                                <span className="flex items-center gap-1.5">
+                                                    <Loader2 size={12} className="animate-spin" />
+                                                    {progressLabel}
+                                                </span>
+                                                <span className="font-bold text-cyan-400">{progress}%</span>
+                                            </div>
+                                            <div className="w-full bg-slate-800 rounded-full h-2.5 overflow-hidden">
+                                                <div
+                                                    className="h-full bg-gradient-to-r from-blue-500 via-cyan-500 to-emerald-500 rounded-full transition-all duration-300"
+                                                    style={{ width: `${progress}%` }}
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Compress Button */}
+                                    {!compressing && !result && (
+                                        <button
+                                            onClick={handleCompress}
+                                            disabled={compressing || files.length === 0}
+                                            className="w-full mt-4 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                                        >
+                                            <Zap size={18} />
+                                            <span>Compress {files.length > 1 ? `${files.length} Files` : "File"}</span>
+                                        </button>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Error */}
+                            {error && (
+                                <div className="mt-5 bg-red-500/10 border border-red-500/20 text-red-300 p-4 rounded-xl flex items-start gap-3">
+                                    <AlertCircle size={18} className="flex-shrink-0 mt-0.5" />
+                                    <span className="text-sm">{error}</span>
+                                </div>
+                            )}
+
+                            {/* Result */}
+                            {result && (
+                                <div className="mt-5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-5">
+                                    <div className="flex items-center gap-2 mb-5">
+                                        <CheckCircle2 size={20} className="text-emerald-400" />
+                                        <span className="font-bold text-emerald-300">Compression Complete!</span>
+                                    </div>
+
+                                    {/* Size Comparison */}
+                                    <div className="flex items-center justify-center gap-4 mb-5 bg-slate-900/50 rounded-xl p-4 border border-slate-800">
+                                        <div className="text-center flex-1">
+                                            <p className="text-xs text-slate-500 mb-1 uppercase tracking-wider">Original</p>
+                                            <p className="text-xl font-bold text-slate-300">{fmtSize(result.originalSize)}</p>
+                                        </div>
+                                        <div className="flex flex-col items-center gap-1">
+                                            <ArrowDown size={20} className="text-emerald-400" />
+                                            <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                                                -{savingsPercent(result.originalSize, result.compressedSize)}%
                                             </span>
-                                            <span className="font-bold text-cyan-400">{progress}%</span>
                                         </div>
-                                        <div className="w-full bg-slate-800 rounded-full h-2.5 overflow-hidden">
-                                            <div
-                                                className="h-full bg-gradient-to-r from-blue-500 via-cyan-500 to-emerald-500 rounded-full transition-all duration-300"
-                                                style={{ width: `${progress}%` }}
-                                            />
+                                        <div className="text-center flex-1">
+                                            <p className="text-xs text-slate-500 mb-1 uppercase tracking-wider">Compressed</p>
+                                            <p className="text-xl font-bold text-emerald-400">{fmtSize(result.compressedSize)}</p>
                                         </div>
                                     </div>
-                                )}
 
-                                {/* Compress Button */}
-                                {!compressing && !result && (
+                                    <p className="text-xs text-slate-500 text-center mb-4">
+                                        Saved {fmtSize(result.originalSize - result.compressedSize)} ({savingsPercent(result.originalSize, result.compressedSize)}% reduction)
+                                    </p>
+
                                     <button
-                                        onClick={handleCompress}
-                                        disabled={compressing || files.length === 0}
-                                        className="w-full mt-4 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                                        onClick={handleDownload}
+                                        className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold py-3 rounded-xl shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 transition-all"
                                     >
-                                        <Zap size={18} />
-                                        <span>Compress {files.length > 1 ? `${files.length} Files` : "File"}</span>
+                                        <Download size={18} />
+                                        Download {result.filename}
                                     </button>
-                                )}
-                            </div>
-                        )}
-
-                        {/* Error */}
-                        {error && (
-                            <div className="mt-5 bg-red-500/10 border border-red-500/20 text-red-300 p-4 rounded-xl flex items-start gap-3">
-                                <AlertCircle size={18} className="flex-shrink-0 mt-0.5" />
-                                <span className="text-sm">{error}</span>
-                            </div>
-                        )}
-
-                        {/* Result */}
-                        {result && (
-                            <div className="mt-5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-5">
-                                <div className="flex items-center gap-2 mb-5">
-                                    <CheckCircle2 size={20} className="text-emerald-400" />
-                                    <span className="font-bold text-emerald-300">Compression Complete!</span>
                                 </div>
-
-                                {/* Size Comparison */}
-                                <div className="flex items-center justify-center gap-4 mb-5 bg-slate-900/50 rounded-xl p-4 border border-slate-800">
-                                    <div className="text-center flex-1">
-                                        <p className="text-xs text-slate-500 mb-1 uppercase tracking-wider">Original</p>
-                                        <p className="text-xl font-bold text-slate-300">{fmtSize(result.originalSize)}</p>
-                                    </div>
-                                    <div className="flex flex-col items-center gap-1">
-                                        <ArrowDown size={20} className="text-emerald-400" />
-                                        <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
-                                            -{savingsPercent(result.originalSize, result.compressedSize)}%
-                                        </span>
-                                    </div>
-                                    <div className="text-center flex-1">
-                                        <p className="text-xs text-slate-500 mb-1 uppercase tracking-wider">Compressed</p>
-                                        <p className="text-xl font-bold text-emerald-400">{fmtSize(result.compressedSize)}</p>
-                                    </div>
-                                </div>
-
-                                <p className="text-xs text-slate-500 text-center mb-4">
-                                    Saved {fmtSize(result.originalSize - result.compressedSize)} ({savingsPercent(result.originalSize, result.compressedSize)}% reduction)
-                                </p>
-
-                                <button
-                                    onClick={handleDownload}
-                                    className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold py-3 rounded-xl shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 transition-all"
-                                >
-                                    <Download size={18} />
-                                    Download {result.filename}
-                                </button>
-                            </div>
-                        )}
+                            )}
+                        </div>
                     </div>
+
+                    {/* Features */}
+                    {files.length === 0 && !result && (
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mt-10">
+                            <div className="bg-slate-900/30 border border-slate-800 p-5 rounded-xl text-center">
+                                <div className="w-10 h-10 bg-blue-500/10 rounded-lg flex items-center justify-center mx-auto mb-3">
+                                    <Zap size={20} className="text-blue-400" />
+                                </div>
+                                <h3 className="font-bold text-white mb-1 text-sm">Smart Compression</h3>
+                                <p className="text-slate-500 text-xs">Intelligent algorithms reduce file sizes by up to 50% while preserving visual quality</p>
+                            </div>
+                            <div className="bg-slate-900/30 border border-slate-800 p-5 rounded-xl text-center">
+                                <div className="w-10 h-10 bg-emerald-500/10 rounded-lg flex items-center justify-center mx-auto mb-3">
+                                    <Upload size={20} className="text-emerald-400" />
+                                </div>
+                                <h3 className="font-bold text-white mb-1 text-sm">Batch Upload</h3>
+                                <p className="text-slate-500 text-xs">Compress up to 10 images or 5 videos at once — automatically zipped for download</p>
+                            </div>
+                            <div className="bg-slate-900/30 border border-slate-800 p-5 rounded-xl text-center">
+                                <div className="w-10 h-10 bg-purple-500/10 rounded-lg flex items-center justify-center mx-auto mb-3">
+                                    <Download size={20} className="text-purple-400" />
+                                </div>
+                                <h3 className="font-bold text-white mb-1 text-sm">Auto Download</h3>
+                                <p className="text-slate-500 text-xs">Compressed files download automatically — no extra clicks needed</p>
+                            </div>
+                        </div>
+                    )}
                 </div>
+            </main>
 
-                {/* Features */}
-                {files.length === 0 && !result && (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mt-10">
-                        <div className="bg-slate-900/30 border border-slate-800 p-5 rounded-xl text-center">
-                            <div className="w-10 h-10 bg-blue-500/10 rounded-lg flex items-center justify-center mx-auto mb-3">
-                                <Zap size={20} className="text-blue-400" />
-                            </div>
-                            <h3 className="font-bold text-white mb-1 text-sm">Smart Compression</h3>
-                            <p className="text-slate-500 text-xs">Intelligent algorithms reduce file sizes by up to 50% while preserving visual quality</p>
-                        </div>
-                        <div className="bg-slate-900/30 border border-slate-800 p-5 rounded-xl text-center">
-                            <div className="w-10 h-10 bg-emerald-500/10 rounded-lg flex items-center justify-center mx-auto mb-3">
-                                <Upload size={20} className="text-emerald-400" />
-                            </div>
-                            <h3 className="font-bold text-white mb-1 text-sm">Batch Upload</h3>
-                            <p className="text-slate-500 text-xs">Compress up to 10 images or 5 videos at once — automatically zipped for download</p>
-                        </div>
-                        <div className="bg-slate-900/30 border border-slate-800 p-5 rounded-xl text-center">
-                            <div className="w-10 h-10 bg-purple-500/10 rounded-lg flex items-center justify-center mx-auto mb-3">
-                                <Download size={20} className="text-purple-400" />
-                            </div>
-                            <h3 className="font-bold text-white mb-1 text-sm">Auto Download</h3>
-                            <p className="text-slate-500 text-xs">Compressed files download automatically — no extra clicks needed</p>
-                        </div>
-                    </div>
-                )}
-            </div>
-        </main>
+            {/* FAQ */}
+            <FAQSection items={COMPRESSOR_FAQ} title="Compressor — FAQ" />
+        </>
     );
 }

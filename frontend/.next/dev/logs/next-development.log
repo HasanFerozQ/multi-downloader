@@ -3,3 +3,10 @@
 [00:00:12.007] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
 [00:00:13.503] Browser WARN    Image with src "/binance_qr.png" has "fill" but is missing "sizes" prop. Please add it to improve page performance. Read more: https://nextjs.org/docs/api-reference/next/image#sizes
 [00:11:20.584] Server  LOG     ✓ Compiled in 510ms
+[00:40:40.478] Server  LOG     ✓ Compiled in 640ms
+[00:42:47.899] Server  LOG     ✓ Compiled in 151ms
+[00:47:55.758] Server  LOG     ✓ Compiled in 730ms
+[00:48:51.733] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:48:51.996] Browser WARN    Image with src "/binance_qr.png" was detected as the Largest Contentful Paint (LCP). Please add the `loading="eager"` property if this image is above the fold.
+Read more: https://nextjs.org/docs/app/api-reference/components/image#loading
+[00:48:51.996] Browser WARN    Image with src "/binance_qr.png" has "fill" but is missing "sizes" prop. Please add it to improve page performance. Read more: https://nextjs.org/docs/api-reference/next/image#sizes
