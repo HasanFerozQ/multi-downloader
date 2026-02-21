@@ -150,10 +150,28 @@ type LayoutConfig<Route extends LayoutRoutes = LayoutRoutes> = {
 
 
 
+// Validate ../../../app/audio-tools/layout.tsx
+{
+  type __IsExpected<Specific extends LayoutConfig<"/audio-tools">> = Specific
+  const handler = {} as typeof import("../../../app/audio-tools/layout.js")
+  type __Check = __IsExpected<typeof handler>
+  // @ts-ignore
+  type __Unused = __Check
+}
+
 // Validate ../../../app/compressor/layout.tsx
 {
   type __IsExpected<Specific extends LayoutConfig<"/compressor">> = Specific
   const handler = {} as typeof import("../../../app/compressor/layout.js")
+  type __Check = __IsExpected<typeof handler>
+  // @ts-ignore
+  type __Unused = __Check
+}
+
+// Validate ../../../app/convertors/layout.tsx
+{
+  type __IsExpected<Specific extends LayoutConfig<"/convertors">> = Specific
+  const handler = {} as typeof import("../../../app/convertors/layout.js")
   type __Check = __IsExpected<typeof handler>
   // @ts-ignore
   type __Unused = __Check

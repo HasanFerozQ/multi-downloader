@@ -12,6 +12,7 @@ import FeedbackWidget from "@/components/FeedbackWidget";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://kingtools.pro"),
   title: "King Tools - Video Analyzer, Downloader, Audio Tools & Converters",
   description: "Professional social media toolkit: Analyze YouTube videos with 31 metrics, download from 5+ platforms, extract & enhance audio, convert images/audio/documents. Free online tools.",
   keywords: ["video analyzer", "youtube analyzer", "video downloader", "audio tools", "file converter", "social media tools", "tiktok downloader", "instagram downloader"],
@@ -20,6 +21,20 @@ export const metadata: Metadata = {
     title: "King Tools - Complete Social Media Toolkit",
     description: "Analyze, download, convert, and enhance your media content with professional-grade tools",
     type: "website",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "King Tools — Professional Media Toolkit",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "King Tools - Complete Social Media Toolkit",
+    description: "Analyze, download, convert, and enhance your media content with professional-grade tools",
+    images: ["/og-image.png"],
   },
   robots: {
     index: true,
@@ -34,6 +49,37 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
+      <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@graph": [
+                {
+                  "@type": "WebSite",
+                  "@id": (process.env.NEXT_PUBLIC_SITE_URL || "https://kingtools.pro") + "/#website",
+                  "url": process.env.NEXT_PUBLIC_SITE_URL || "https://kingtools.pro",
+                  "name": "King Tools",
+                  "description": "Professional media toolkit: analyze videos, download from 5+ platforms, convert files, compress media.",
+                  "potentialAction": {
+                    "@type": "SearchAction",
+                    "target": (process.env.NEXT_PUBLIC_SITE_URL || "https://kingtools.pro") + "/?url={search_term_string}",
+                    "query-input": "required name=search_term_string",
+                  },
+                },
+                {
+                  "@type": "SoftwareApplication",
+                  "name": "King Tools",
+                  "applicationCategory": "MultimediaApplication",
+                  "operatingSystem": "Web",
+                  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+                },
+              ],
+            }),
+          }}
+        />
+      </head>
       <body className={`${inter.className} bg-[#020617] min-h-screen flex flex-col`}>
         {/* Navbar */}
         <Navbar />

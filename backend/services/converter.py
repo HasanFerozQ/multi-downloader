@@ -167,12 +167,13 @@ class DocumentConverter(BaseConverter):
             if result.returncode != 0:
                 raise RuntimeError(f"LibreOffice conversion failed: {result.stderr}")
                 
-            expected_output = OUTPUT_DIR / f"{file_path.stem}.pdf"
-            
-            if not expected_output.exists():
+            # LibreOffice outputs to `stem.pdf` — rename to UUID to avoid concurrent collisions
+            lo_output = OUTPUT_DIR / f"{file_path.stem}.pdf"
+            if not lo_output.exists():
                 raise RuntimeError("LibreOffice finished but output file not found.")
-                
-            return expected_output
+            unique_output = OUTPUT_DIR / f"{file_path.stem}_{uuid.uuid4().hex[:8]}.pdf"
+            lo_output.rename(unique_output)
+            return unique_output
         
         # Fallback: try docx2pdf (requires Microsoft Word on Windows)
         input_ext = file_path.suffix.lower().lstrip('.')
@@ -242,7 +243,9 @@ class DocumentConverter(BaseConverter):
 
     def _pdf_to_docx(self, input_path: Path, output_path: Path) -> Path:
         cv = PdfConverter(str(input_path))
-        cv.convert(str(output_path), start=0, end=None)
-        cv.close()
+        try:
+            cv.convert(str(output_path), start=0, end=None)
+        finally:
+            cv.close()
         return output_path
 

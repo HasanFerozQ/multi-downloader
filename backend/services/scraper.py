@@ -89,8 +89,6 @@ def _clean_youtube_url(url: str) -> str:
 
 def get_video_info(url: str) -> Dict[str, Any]:
     """Extract video information and available formats"""
-    _update_ytdlp()
-    
     # Clean playlist/radio params from YouTube URLs
     url = _clean_youtube_url(url)
     

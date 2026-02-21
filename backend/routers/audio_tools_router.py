@@ -1,4 +1,4 @@
-from fastapi import APIRouter, File, UploadFile, Form, HTTPException, BackgroundTasks # type: ignore
+from fastapi import APIRouter, File, UploadFile, Form, HTTPException, BackgroundTasks, Request # type: ignore
 from fastapi.responses import JSONResponse, FileResponse # type: ignore
 import os
 import shutil
@@ -10,8 +10,12 @@ import subprocess
 import threading
 import time
 from dotenv import load_dotenv # type: ignore
+from slowapi import Limiter # type: ignore
+from slowapi.util import get_remote_address # type: ignore
 
 load_dotenv()
+
+limiter = Limiter(key_func=get_remote_address)
 
 router = APIRouter(
     prefix="/audio-tools",
@@ -106,7 +110,9 @@ def _run_audio_task(task_id: str, input_path: str, output_path: str, effects: di
 
 
 @router.post("/process-audio")
+@limiter.limit("5/minute")
 async def process_audio(
+    request: Request,
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     effects: str = Form(...),
@@ -116,9 +122,13 @@ async def process_audio(
         effects_data = json.loads(effects)
         print(f"[DEBUG] /process-audio received effects: {effects_data}")
 
-        # Validate File Size (100MB Limit)
-        if file.size and file.size > 100 * 1024 * 1024:
+        # Validate File Size (100MB Limit) — streaming approach since UploadFile.size can be None
+        MAX_AUDIO_SIZE = 100 * 1024 * 1024  # 100 MB
+        contents = await file.read(MAX_AUDIO_SIZE + 1)
+        if len(contents) > MAX_AUDIO_SIZE:
             raise HTTPException(status_code=400, detail="File too large. Maximum size is 100MB.")
+        # Reset pointer for later use
+        await file.seek(0)
 
         file_id = str(uuid.uuid4())
         original_stem = Path(file.filename).stem if file.filename else "audio"
@@ -214,7 +224,10 @@ async def download_result(task_id: str):
 
 
 @router.post("/extract-from-video")
-async def extract_from_video(file: UploadFile = File(...)):
+@limiter.limit("10/minute")
+async def extract_from_video(request: Request, background_tasks: BackgroundTasks, file: UploadFile = File(...)):
+    input_path: Path | None = None
+    output_path: Path | None = None
     try:
         file_id = str(uuid.uuid4())
         input_filename = f"{file_id}_{file.filename}"
@@ -235,10 +248,16 @@ async def extract_from_video(file: UploadFile = File(...)):
 
         subprocess.run(cmd, check=True, capture_output=True)
 
+        # Clean up input immediately; WAV cleaned after response is sent
         cleanup_file(str(input_path))
+        input_path = None
+        background_tasks.add_task(cleanup_file, str(output_path))
 
         return FileResponse(str(output_path), filename="extracted.wav")
 
     except Exception as e:
-        cleanup_file(str(input_path)) if 'input_path' in locals() else None
+        if input_path:
+            cleanup_file(str(input_path))
+        if output_path:
+            cleanup_file(str(output_path))
         raise HTTPException(status_code=500, detail=f"Extraction failed: {str(e)}")

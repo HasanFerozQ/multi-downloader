@@ -21,8 +21,10 @@ class ImageCompressor:
     SUPPORTED = {'jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'svg'}
 
     def compress(self, file_path: Path, quality: int = 50) -> Path:
+        import uuid
         ext = file_path.suffix.lower().lstrip('.')
-        out_name = f"{file_path.stem}_Compressed"
+        uid = uuid.uuid4().hex[:8]
+        out_name = f"{file_path.stem}_Compressed_{uid}"
         output_path = OUTPUT_DIR / f"{out_name}.{ext}"
 
         if ext == 'svg':
@@ -31,44 +33,40 @@ class ImageCompressor:
             shutil.copy2(str(file_path), str(output_path))
             return output_path
 
-        img = Image.open(file_path)
+        with Image.open(file_path) as img:
+            # Resize if image exceeds max dimension (preserves aspect ratio)
+            if max(img.size) > MAX_IMAGE_DIMENSION:
+                img.thumbnail((MAX_IMAGE_DIMENSION, MAX_IMAGE_DIMENSION), Image.LANCZOS)
 
-        # Resize if image exceeds max dimension (preserves aspect ratio)
-        if max(img.size) > MAX_IMAGE_DIMENSION:
-            img.thumbnail((MAX_IMAGE_DIMENSION, MAX_IMAGE_DIMENSION), Image.LANCZOS)
-
-        if ext in ('jpg', 'jpeg'):
-            if img.mode in ('RGBA', 'P'):
-                img = img.convert('RGB')
-            img.save(str(output_path), 'JPEG', quality=quality, optimize=True)
-
-        elif ext == 'png':
-            # If no transparency, convert to JPEG for much better compression
-            if img.mode in ('RGB', 'L'):
-                output_path = OUTPUT_DIR / f"{out_name}.jpg"
+            if ext in ('jpg', 'jpeg'):
+                if img.mode in ('RGBA', 'P'):
+                    img = img.convert('RGB')
                 img.save(str(output_path), 'JPEG', quality=quality, optimize=True)
-            else:
-                # Has transparency — quantize + optimize
-                img = img.quantize(method=2, dither=0)
-                img.save(str(output_path), 'PNG', optimize=True)
 
-        elif ext == 'webp':
-            img.save(str(output_path), 'WEBP', quality=quality, method=6)
+            elif ext == 'png':
+                # If no transparency, convert to JPEG for much better compression
+                if img.mode in ('RGB', 'L'):
+                    output_path = OUTPUT_DIR / f"{out_name}.jpg"
+                    img.save(str(output_path), 'JPEG', quality=quality, optimize=True)
+                else:
+                    # Has transparency — quantize + optimize
+                    img = img.quantize(method=2, dither=0)
+                    img.save(str(output_path), 'PNG', optimize=True)
 
-        elif ext == 'gif':
-            img.save(str(output_path), 'GIF', optimize=True)
+            elif ext == 'webp':
+                img.save(str(output_path), 'WEBP', quality=quality, method=6)
 
-        elif ext == 'bmp':
-            # BMP → JPEG for real compression
-            output_path = OUTPUT_DIR / f"{out_name}.jpg"
-            if img.mode in ('RGBA', 'P'):
+            elif ext == 'gif':
+                img.save(str(output_path), 'GIF', optimize=True)
+
+            elif ext == 'bmp':
+                # BMP → JPEG for real compression
+                output_path = OUTPUT_DIR / f"{out_name}.jpg"
                 img = img.convert('RGB')
-            else:
-                img = img.convert('RGB')
-            img.save(str(output_path), 'JPEG', quality=quality, optimize=True)
+                img.save(str(output_path), 'JPEG', quality=quality, optimize=True)
 
-        else:
-            raise ValueError(f"Unsupported image format: {ext}")
+            else:
+                raise ValueError(f"Unsupported image format: {ext}")
 
         return output_path
 

@@ -1,17 +1,41 @@
 # Dependencies
 node_modules/
 .next/
+frontend/.next/
 venv/
 __pycache__/
 
-# Downloads
+# Downloads / Temp runtime dirs
 temp_downloads/
+temp_uploads/
+temp_outputs/
 *.mp4
 *.mp3
 
 # Environment
 .env
+.env.local
+.env.*.local
 .DS_Store
 
-# ffmpeg
+# ffmpeg binaries (deploy separately)
 ffmpeg.exe
+ffprobe.exe
+
+# 🔒 Sensitive: Cookie files (contain session tokens — NEVER commit)
+cookies_*.txt
+
+# Celery binary state files (machine-specific, not for version control)
+celerybeat-schedule
+celerybeat-schedule-shm
+celerybeat-schedule-wal
+
+# Logs
+*.log
+api_errors.log
+downloader.log
+worker_errors.log
+
+# Test artifacts
+.pytest_cache/
+feedback.json

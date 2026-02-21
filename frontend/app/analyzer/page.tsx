@@ -240,7 +240,7 @@ export default function VideoAnalyzerPage() {
   const [error, setError] = useState("");
 
   const analyze = async () => {
-    if (!url.trim()) { setError("Please enter a YouTube URL"); return; }
+    if (!url.trim()) { setError("Please enter a video URL (YouTube, TikTok, Instagram, Facebook, or X)"); return; }
     setLoading(true);
     setError("");
     setResult(null);

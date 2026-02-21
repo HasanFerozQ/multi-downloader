@@ -75,15 +75,8 @@ def get_ffmpeg_location():
     
     return None
 
-def update_ytdlp():
-    """Keep yt-dlp updated"""
-    try:
-        subprocess.run(["pip", "install", "-U", "yt-dlp"], 
-                      capture_output=True, 
-                      timeout=30,
-                      check=False)
-    except:
-        pass
+# yt-dlp update is now handled at startup (main.py) and via daily Celery Beat schedule
+# No longer runs pip install — uses yt-dlp's own self-update mechanism instead
 
 @celery.task(bind=True)
 def download_video_task(self, url: str, format_id: str, output_path: str):
@@ -91,8 +84,6 @@ def download_video_task(self, url: str, format_id: str, output_path: str):
     FIXED: Complete working version with proper return values
     """
     try:
-        update_ytdlp()
-        
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
         
         self.update_state(state='PROGRESS', meta={'progress': 0, 'status': 'Starting'})
@@ -268,11 +259,24 @@ def scheduled_cleanup():
     
     return f"Cleaned {cleaned} files"
 
-# Celery Beat schedule for periodic cleanup
+@celery.task
+def update_ytdlp_scheduled():
+    """Daily yt-dlp self-update via its own update mechanism (no pip)."""
+    try:
+        subprocess.run(["yt-dlp", "-U"], capture_output=True, timeout=60, check=False)
+        print("[beat] yt-dlp update check complete.")
+    except Exception as e:
+        print(f"[beat] yt-dlp update failed: {e}")
+
+# Celery Beat schedule for periodic cleanup + daily yt-dlp update
 celery.conf.beat_schedule = {
     'cleanup-every-10-minutes': {
         'task': 'backend.worker.scheduled_cleanup',
         'schedule': 600.0,
+    },
+    'update-ytdlp-daily': {
+        'task': 'backend.worker.update_ytdlp_scheduled',
+        'schedule': 86400.0,
     },
 }
 

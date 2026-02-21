@@ -44,7 +44,7 @@ REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 r = redis.from_url(REDIS_URL, decode_responses=True)
 limiter = Limiter(key_func=get_remote_address)
 
-origins = os.getenv("CORS_ORIGINS", "*").split(",")
+origins = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
 
 app.add_middleware(
     CORSMiddleware,
@@ -56,6 +56,24 @@ app.add_middleware(
 
 # Ensure temp directory exists on startup
 os.makedirs("temp_downloads", exist_ok=True)
+
+# ---- yt-dlp self-update on startup ----
+def _update_ytdlp() -> None:
+    """
+    Uses yt-dlp's own update mechanism — only touches the yt-dlp binary,
+    leaves pip and the broader Python environment completely untouched.
+    Runs in a background thread so startup is non-blocking.
+    """
+    try:
+        import yt_dlp  # type: ignore
+        print("[startup] Checking for yt-dlp update...")
+        yt_dlp.update.run_update(yt_dlp)
+        print(f"[startup] yt-dlp is up to date (v{yt_dlp.version.__version__})")
+    except Exception as e:
+        print(f"[startup] yt-dlp update check failed (continuing with current version): {e}")
+
+import threading
+threading.Thread(target=_update_ytdlp, daemon=True).start()
 
 from backend.services.validators import validate_url, sanitize_input # type: ignore
 
@@ -76,7 +94,8 @@ async def root():
 @app.get("/analyze")
 @limiter.limit("10/minute")
 async def analyze(request: Request, url: str):
-    validate_url(url)
+    if not validate_url(url):
+        raise HTTPException(status_code=400, detail="Unsupported platform. Please use YouTube, X, TikTok, FB, or IG.")
     cache_key = f"meta:{url}"
     cached = r.get(cache_key)
     if cached: return json.loads(cached)
@@ -117,7 +136,8 @@ async def check_status(task_id: str):
             # Celery default queue is 'celery'
             queue_len = r.llen("celery")
             return {"status": "queued", "progress": 0, "queue_position": queue_len if queue_len else 1}
-        except:
+        except Exception as e:
+            print(f"[WARNING] Redis queue check failed: {e}")
             return {"status": "queued", "progress": 0}
             
     elif result.state == 'PROGRESS':

@@ -154,7 +154,7 @@ export default function VideoAnalyzerPage() {
   const [error, setError] = useState("");
 
   const analyze = async () => {
-    if (!url.trim()) { setError("Please enter a YouTube URL"); return; }
+    if (!url.trim()) { setError("Please enter a video URL (YouTube, TikTok, Instagram, Facebook, or X)"); return; }
     setLoading(true);
     setError("");
     setResult(null);
@@ -194,7 +194,7 @@ export default function VideoAnalyzerPage() {
     }
   };
 
-  const s = result?.sections;
+
 
   return (
     <main className="min-h-screen bg-[conic-gradient(at_top_right,_var(--tw-gradient-stops))] from-slate-900 via-slate-900 to-indigo-950 text-white font-sans p-5">
