@@ -1,5 +1,11 @@
 {
   "app": {
+    "[project]/app/audio-tools/page": [
+      "static/media/83afe278b6a6bb3c-s.p.3a6ba036.woff2"
+    ],
+    "[project]/app/blog/page": [
+      "static/media/83afe278b6a6bb3c-s.p.3a6ba036.woff2"
+    ],
     "[project]/app/compressor/page": [
       "static/media/83afe278b6a6bb3c-s.p.3a6ba036.woff2"
     ],
@@ -7,6 +13,9 @@
       "static/media/83afe278b6a6bb3c-s.p.3a6ba036.woff2"
     ],
     "[project]/app/downloader/page": [
+      "static/media/83afe278b6a6bb3c-s.p.3a6ba036.woff2"
+    ],
+    "[project]/app/gif-downloader/page": [
       "static/media/83afe278b6a6bb3c-s.p.3a6ba036.woff2"
     ],
     "[project]/app/page": [

@@ -121,6 +121,7 @@ async def process_audio(
             raise HTTPException(status_code=400, detail="File too large. Maximum size is 100MB.")
 
         file_id = str(uuid.uuid4())
+        original_stem = Path(file.filename).stem if file.filename else "audio"
         input_filename = f"{file_id}_{file.filename}"
         input_path = UPLOAD_DIR / input_filename
 
@@ -140,7 +141,7 @@ async def process_audio(
 
         # Register task as PENDING
         task_id = file_id
-        _set_task(task_id, status="PENDING", progress=0, message="Queued...", path=None, error=None)
+        _set_task(task_id, status="PENDING", progress=0, message="Queued...", path=None, error=None, original_stem=original_stem)
 
         # Run in background thread (non-blocking)
         background_tasks.add_task(
@@ -201,7 +202,9 @@ async def download_result(task_id: str):
     if task.get("status") == "SUCCESS":
         output_path = task.get("path")
         if output_path and os.path.exists(output_path):
-            return FileResponse(output_path, filename="processed_audio.mp3", media_type="audio/mpeg")
+            original_stem = task.get("original_stem", "audio")
+            download_name = f"{original_stem}-processed.mp3"
+            return FileResponse(output_path, filename=download_name, media_type="audio/mpeg")
         raise HTTPException(status_code=404, detail="Output file missing — may have been cleaned up")
 
     if task.get("status") == "FAILURE":

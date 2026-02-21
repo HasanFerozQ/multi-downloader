@@ -29,14 +29,13 @@ export default function FeedbackWidget() {
         setLoading(true);
         setStatus('idle');
         try {
-            // Assuming backend is running on localhost:8000 or proxied via Next.js
-            // Using direct URL for simplicity, ideally use env var
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-
-            const res = await fetch(`${API_URL}/feedback`, {
+            const res = await fetch("https://formspree.io/f/xeelroon", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ message, contact }),
+                body: JSON.stringify({
+                    message,
+                    contact: contact || "Anonymous",
+                }),
             });
 
             if (!res.ok) throw new Error("Failed to send feedback");

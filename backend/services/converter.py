@@ -188,11 +188,57 @@ class DocumentConverter(BaseConverter):
             except Exception as e:
                 raise RuntimeError(f"docx2pdf conversion failed: {str(e)}")
         
+        # Final fallback: python-docx + fpdf2 (pure Python, no external tools needed)
+        input_ext = file_path.suffix.lower().lstrip('.')
+        if input_ext in ('doc', 'docx'):
+            try:
+                return self._convert_docx_to_pdf_python(file_path)
+            except Exception as e:
+                raise RuntimeError(f"All PDF conversion methods failed. Last error: {str(e)}")
+        
         raise RuntimeError(
             "Neither LibreOffice nor Microsoft Word found. "
             "Install LibreOffice from https://www.libreoffice.org/download/ "
             "or Microsoft Word to enable document conversions."
         )
+
+    def _convert_docx_to_pdf_python(self, file_path: Path) -> Path:
+        """Pure-Python fallback: converts DOCX to PDF using python-docx + fpdf2."""
+        from fpdf import FPDF  # type: ignore
+        import docx as _docx
+
+        output_path = OUTPUT_DIR / f"{file_path.stem}.pdf"
+
+        doc = _docx.Document(str(file_path))
+        pdf = FPDF()
+        pdf.set_auto_page_break(auto=True, margin=15)
+        pdf.add_page()
+        pdf.set_font("Helvetica", size=11)
+
+        for para in doc.paragraphs:
+            text = para.text
+            if not text.strip():
+                pdf.ln(4)  # blank line spacing
+                continue
+            # Detect headings by style name
+            style_name = para.style.name.lower() if para.style and para.style.name else ""
+            if "heading 1" in style_name:
+                pdf.set_font("Helvetica", style="B", size=16)
+            elif "heading 2" in style_name:
+                pdf.set_font("Helvetica", style="B", size=14)
+            elif "heading" in style_name:
+                pdf.set_font("Helvetica", style="B", size=12)
+            else:
+                pdf.set_font("Helvetica", size=11)
+            # Encode safely for latin-1 (fpdf2 default)
+            safe_text = text.encode("latin-1", errors="replace").decode("latin-1")
+            pdf.multi_cell(0, 6, safe_text)
+            pdf.ln(1)
+
+        pdf.output(str(output_path))
+        if not output_path.exists():
+            raise RuntimeError("fpdf2 finished but output PDF not found.")
+        return output_path
 
     def _pdf_to_docx(self, input_path: Path, output_path: Path) -> Path:
         cv = PdfConverter(str(input_path))
