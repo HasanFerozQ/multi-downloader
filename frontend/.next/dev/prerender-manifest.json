@@ -1,11 +1,1 @@
-{
-  "version": 4,
-  "routes": {},
-  "dynamicRoutes": {},
-  "notFoundRoutes": [],
-  "preview": {
-    "previewModeId": "291d58613ed356fb2672e007db51b96c",
-    "previewModeSigningKey": "cdef6a740962972b94decdc04b9191b687d35dba0500c9063fa1c62b3c7750bc",
-    "previewModeEncryptionKey": "8afb046aaffd415ec7c66d3af99777ea0d342bc713a837f3461cd7fd5f7f4352"
-  }
-}
+{"version":4,"routes":{"/blog/ai-agents-reality-check":{},"/blog/efficient-ai-models-win":{}},"dynamicRoutes":{"/blog/[slug]":{"dataRoute":null,"dataRouteRegex":null,"fallback":null,"fallbackRevalidate":false,"fallbackSourceRoute":"/blog/[slug]","routeRegex":"^\\/blog\\/([^/]+?)(?:\\/)?$","allowHeader":[]}},"notFoundRoutes":[],"preview":{"previewModeId":"c5677c895caffc1edc17e2ac9306e843","previewModeSigningKey":"1407ddaad7d180d59fa6b1b294a6d51a032168482f280589e5083568578443f0","previewModeEncryptionKey":"1883afe78fa5a231b5d87d0990c5d1b4c9b648e41e0579e19c738033110cfb64"}}
